@@ -1,6 +1,8 @@
-const CACHE_NAME = 'bingeul-tvtime-v1';
+const CACHE_NAME = 'bingeul-tvtime-v2'; // 1. Incremented version
 const APP_SHELL = [
   './index.html',
+  './styles.css',               // 2. Added separated CSS
+  './app.js',                   // 2. Added separated JS
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
