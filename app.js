@@ -117,8 +117,6 @@ const i18n = {
     deletedToast: "removed from your list",
     settingStatsLabel: "Statistics",
     btnBilan: "My recap",
-    settingInstallLabel: "Installation",
-    btnInstall: "Install the app",
     bilanTitle: "My recap",
     bilanSub: "A snapshot of your K-drama journey",
     bilanShows: "Shows",
@@ -227,8 +225,6 @@ const i18n = {
     deletedToast: "retirée de ta liste",
     settingStatsLabel: "Statistiques",
     btnBilan: "Mon bilan",
-    settingInstallLabel: "Installation",
-    btnInstall: "Installer l'application",
     bilanTitle: "Mon bilan",
     bilanSub: "Un aperçu de ton parcours K-drama",
     bilanShows: "Séries",
@@ -265,8 +261,6 @@ function applyLanguage(lang) {
   document.getElementById('undo-toast-btn').textContent = t.undoLabel;
   document.getElementById('ui-setting-stats-label').textContent = t.settingStatsLabel;
   document.getElementById('ui-btn-bilan').textContent = t.btnBilan;
-  document.getElementById('ui-setting-install-label').textContent = t.settingInstallLabel;
-  document.getElementById('ui-btn-install').textContent = t.btnInstall;
   document.getElementById('ui-bilan-title').textContent = t.bilanTitle;
   document.getElementById('ui-bilan-sub').textContent = t.bilanSub;
   document.getElementById('ui-bilan-genres-title').textContent = t.bilanGenresTitle;
@@ -1253,7 +1247,7 @@ async function openGlobalRecommendations() {
 
   sourceShows = sourceShows
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-    .slice(0, 10);
+    .slice(0, 6);
 
   if (sourceShows.length === 0) {
     container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); grid-column: 1/-1; text-align: center;">${t.noRecsSource}</span>`;
@@ -1271,25 +1265,9 @@ async function openGlobalRecommendations() {
     } catch (e) {}
   }
 
-  const similarResults = filterKoreanOnly(Array.from(pool.values()))
-    .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
-
-  // Complète avec des séries populaires en général (pas forcément liées
-  // à ta liste) si tu veux voir davantage de choix.
-  const extra = new Map();
-  for (let page = 1; page <= 3; page++) {
-    try {
-      const res = await fetch(`https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_API_KEY}&page=${page}`);
-      const data = await res.json();
-      (data.results || []).forEach(r => {
-        if (!existingTmdbIds.has(r.id) && !pool.has(r.id) && !extra.has(r.id)) extra.set(r.id, r);
-      });
-    } catch (e) {}
-  }
-  const popularResults = filterKoreanOnly(Array.from(extra.values()))
-    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
-
-  const results = [...similarResults, ...popularResults].slice(0, 60);
+  const results = filterKoreanOnly(Array.from(pool.values()))
+    .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0))
+    .slice(0, 24);
 
   if (results.length === 0) {
     container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); grid-column: 1/-1; text-align: center;">${t.noRecsFound}</span>`;
@@ -2009,39 +1987,3 @@ if (savedTabBtn) savedTabBtn.classList.add('active');
 renderDashboard();
 renderPosters();
 renderUpcoming();
-
-// Installation PWA : capte l'événement du navigateur pour proposer
-// un vrai bouton "Installer" dans l'app plutôt que de compter sur un
-// menu caché du navigateur. Ne fonctionne que sur Chrome/Edge/Samsung
-// Internet — pas de support sur Firefox ni iOS/Safari.
-let deferredInstallPrompt = null;
-
-function isRunningStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-}
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  if (isRunningStandalone()) return; // sécurité : jamais dans l'app déjà installée
-  deferredInstallPrompt = e;
-  document.getElementById('install-app-group').style.display = 'block';
-});
-
-window.addEventListener('appinstalled', () => {
-  deferredInstallPrompt = null;
-  document.getElementById('install-app-group').style.display = 'none';
-});
-
-async function installApp() {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt = null;
-  document.getElementById('install-app-group').style.display = 'none';
-}
-
-// Filet de sécurité supplémentaire : si jamais on tourne déjà en mode
-// standalone au chargement, le bouton reste caché quoi qu'il arrive.
-if (isRunningStandalone()) {
-  document.getElementById('install-app-group').style.display = 'none';
-}
