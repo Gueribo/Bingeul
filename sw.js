@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bingeul-tvtime-v3';
+const CACHE_NAME = 'bingeul-tvtime-v4';
 const APP_SHELL = [
   './index.html',
   './style.css',
@@ -12,7 +12,15 @@ const APP_SHELL = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then((cache) =>
+      // Chaque fichier est mis en cache indépendamment : si l'un
+      // d'eux est introuvable (404, faute de frappe, oubli sur le
+      // dépôt...), les autres sont quand même mis en cache et le
+      // service worker s'installe correctement plutôt que d'échouer
+      // en bloc (ce qui empêchait l'app d'être reconnue comme
+      // installable, même si un seul fichier manquait).
+      Promise.allSettled(APP_SHELL.map((url) => cache.add(url)))
+    )
   );
   self.skipWaiting();
 });
