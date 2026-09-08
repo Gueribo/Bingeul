@@ -805,7 +805,7 @@ function renderSearchResults(shows) {
           hideResults();
           openModal(existingDrama.id);
         } else {
-          openPreviewModal(show.id, show.name, posterUrl, show.overview);
+          openPreviewModal(show.id, show.name, posterUrl, show.overview, 'search');
         }
       };
 
@@ -829,11 +829,15 @@ function bookmarkIconSVG(filled) {
     : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 2h12a1 1 0 0 1 1 1v18l-7-4-7 4V3a1 1 0 0 1 1-1z"/></svg>`;
 }
 
-async function openPreviewModal(tmdbId, title, posterUrl, overview) {
+let modalReturnTo = null; // null | 'search' | 'recommendations'
+
+async function openPreviewModal(tmdbId, title, posterUrl, overview, returnTo = null) {
   activeModalDramaId = null;
   activePreview = { tmdbId, title, posterUrl, overview };
+  modalReturnTo = returnTo;
 
   hideResults();
+  closeGlobalRecommendations();
   document.getElementById('modal-menu-btn').style.display = 'none';
   document.getElementById('modal-menu-dropdown').classList.remove('open');
   document.getElementById('owner-only-sections').style.display = 'none';
@@ -1307,7 +1311,7 @@ async function openGlobalRecommendations() {
       : `<span style="position:absolute; inset:0; font-size:0.7rem; color:var(--text-muted); display:flex; align-items:center; justify-content:center; text-align:center; padding: 0.3rem;">${show.name}</span>`;
     card.onclick = () => {
       closeGlobalRecommendations();
-      openPreviewModal(show.id, show.name, posterUrl, show.overview);
+      openPreviewModal(show.id, show.name, posterUrl, show.overview, 'recommendations');
     };
     container.appendChild(card);
   });
@@ -1733,6 +1737,7 @@ async function loadRecommendations(tmdbId) {
 function openModal(dramaId) {
   activeModalDramaId = dramaId;
   activePreview = null;
+  modalReturnTo = null;
   document.getElementById('modal-menu-btn').style.display = '';
   document.getElementById('owner-only-sections').style.display = '';
   renderModalContent(dramaId);
@@ -1746,6 +1751,15 @@ function closeModal() {
   activeModalDramaId = null;
   activePreview = null;
   document.body.style.overflow = '';
+
+  // Retour au modal précédent (recherche ou recommandations) plutôt
+  // que de tout fermer d'un coup sur la page principale.
+  if (modalReturnTo === 'search') {
+    document.getElementById('search-results-modal').classList.add('active');
+  } else if (modalReturnTo === 'recommendations') {
+    document.getElementById('recommendations-modal').classList.add('active');
+  }
+  modalReturnTo = null;
 } 
 
 function closeModalOnBackdrop(e) {

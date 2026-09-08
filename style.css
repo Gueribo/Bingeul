@@ -527,7 +527,16 @@ input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent-yell
   border-radius: 6px;
   margin-bottom: 0.3rem;
 }
-.trending-card .title { font-size: 0.7rem; font-weight: 600; color: var(--text-main); line-height: 1.2; height: 1.8em; overflow: hidden; }
+.trending-card .title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
 
 /* Actor Card Styles */
 .actor-card {
