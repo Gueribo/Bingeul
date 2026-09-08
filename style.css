@@ -276,9 +276,6 @@ input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent-yell
 .library-search-wrapper {
   margin-bottom: 0.75rem;
 }
-.library-search-wrapper input {
-  width: 100%;
-}
 
 .upcoming-section {
   margin-bottom: 1.25rem;

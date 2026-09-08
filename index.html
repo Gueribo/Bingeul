@@ -94,7 +94,10 @@
   </div>
 
   <div class="library-search-wrapper">
-    <input type="text" id="library-search-input" placeholder="Search in my list..." oninput="renderPosters()">
+    <div class="search-input-wrapper">
+      <input type="text" id="library-search-input" placeholder="Search in my list..." oninput="renderPosters(); toggleLibrarySearchClear();">
+      <button type="button" id="library-search-clear-btn" class="btn-clear-search" onclick="clearLibrarySearch()" title="Clear search">✕</button>
+    </div>
   </div>
 
   <div class="controls-bar">

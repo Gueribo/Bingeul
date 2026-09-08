@@ -332,6 +332,20 @@ function clearSearchInput() {
   input.focus();
 }
 
+function toggleLibrarySearchClear() {
+  const input = document.getElementById('library-search-input');
+  const clearBtn = document.getElementById('library-search-clear-btn');
+  clearBtn.style.display = input.value.trim().length > 0 ? 'flex' : 'none';
+}
+
+function clearLibrarySearch() {
+  const input = document.getElementById('library-search-input');
+  input.value = '';
+  toggleLibrarySearchClear();
+  renderPosters();
+  input.focus();
+}
+
 function applyTheme(theme) {
   if (theme === 'pastel') {
     document.documentElement.setAttribute('data-theme', 'pastel');
