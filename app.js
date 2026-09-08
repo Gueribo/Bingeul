@@ -1,8 +1,24 @@
 const TMDB_API_KEY = "15d2ea6d0dc1d476efbca3eba2b9bbfb"; 
+const APP_VERSION = "1.4.0";
 
 let dramas = JSON.parse(localStorage.getItem('tvtime_modal_kdrama_data')) || [];
+
+// Migration : les séries ajoutées avant l'introduction du tri "Récemment
+// ajouté" n'ont pas de champ addedAt. On le déduit de leur id, qui est
+// justement l'horodatage exact de leur ajout — pour éviter que le tri
+// ne retombe sur updatedAt (donc sur "Récemment mis à jour").
+let addedAtMigrated = false;
+dramas.forEach(d => {
+  if (!d.addedAt) {
+    d.addedAt = d.id || d.updatedAt || Date.now();
+    addedAtMigrated = true;
+  }
+});
+if (addedAtMigrated) {
+  localStorage.setItem('tvtime_modal_kdrama_data', JSON.stringify(dramas));
+}
 let activeModalDramaId = null;
-let currentFilter = 'all';
+let currentFilter = localStorage.getItem('tvtime_filter') || 'all';
 let currentLang = localStorage.getItem('tvtime_lang') || 'en';
 let koreanOnlySearch = localStorage.getItem('tvtime_korean_only') !== '0';
 const activeBlobUrls = new Map(); 
@@ -28,6 +44,7 @@ const i18n = {
     tabPlan: "Plan to Watch",
     tabFavorites: "♥ Favorites",
     optUpdated: "Recently Updated",
+    optAdded: "Recently Added",
     optTitle: "Title (A-Z)",
     optRating: "My Rating",
     optProgress: "Progress %",
@@ -46,19 +63,18 @@ const i18n = {
     languageLabel: "Language",
     themeNight: "🌙 Night",
     themePastel: "🌸 Pastel",
-    markAll: "Mark All",
-    unmarkAll: "Finished",
     noShowsFound: "No shows found.",
     alreadyInList: "is already in your list!",
     previewAdd: "Add to my list",
     previewMarkWatched: "Mark as watched",
+    completedLabel: "Completed",
     previewRemove: "Remove from my list",
     inListBadge: "In List",
     unrated: "Unrated",
     noOverview: "No summary available.",
     trailerLabel: "Watch trailer",
     presentLabel: "Present",
-    koreanOnlyLabel: "🇰🇷 K-dramas only",
+    koreanOnlyLabel: "K-dramas only",
     statusReturning: "Ongoing",
     statusEnded: "Completed",
     statusCanceled: "Canceled",
@@ -94,7 +110,27 @@ const i18n = {
     maintenanceLabel: "Maintenance",
     refreshingProgress: "Refreshing",
     refreshAllDone: "Shows updated:",
-    refreshAllFailed: "Failed:"
+    refreshAllFailed: "Failed:",
+    searchLibraryPlaceholder: "Search in my list...",
+    upcomingTitle: "Coming up",
+    undoLabel: "Undo",
+    deletedToast: "removed from your list",
+    settingStatsLabel: "Statistics",
+    btnBilan: "My recap",
+    bilanTitle: "My recap",
+    bilanSub: "A snapshot of your K-drama journey",
+    bilanShows: "Shows",
+    bilanEpisodes: "Episodes watched",
+    bilanTime: "Time watched",
+    bilanCompleted: "Completed",
+    bilanFavorites: "Favorites",
+    bilanAvgRating: "Average rating",
+    bilanGenresTitle: "Top genres",
+    bilanNoData: "Add a few shows to see your recap!",
+    actorFilmographyTitle: "Known for",
+    actorNoBio: "No biography available.",
+    actorLoadFailed: "Couldn't load this person's info.",
+    bornLabel: "Born"
   },
   fr: {
     subtitle: "Le carnet du binge-watching",
@@ -116,6 +152,7 @@ const i18n = {
     tabPlan: "À voir",
     tabFavorites: "♥ Favoris",
     optUpdated: "Récemment mis à jour",
+    optAdded: "Récemment ajouté",
     optTitle: "Titre (A-Z)",
     optRating: "Ma Note",
     optProgress: "Progression %",
@@ -134,19 +171,18 @@ const i18n = {
     languageLabel: "Langue",
     themeNight: "🌙 Mode Nuit",
     themePastel: "🌸 Mode Pastel",
-    markAll: "Marquer comme vu",
-    unmarkAll: "Terminé",
     noShowsFound: "Aucune série trouvée.",
     alreadyInList: "est déjà dans votre liste !",
     previewAdd: "Ajouter à ma liste",
     previewMarkWatched: "Marquer comme vu",
+    completedLabel: "Terminé",
     previewRemove: "Retirer de ma liste",
     inListBadge: "Dans la liste",
     unrated: "Non noté",
     noOverview: "Aucun résumé disponible.",
     trailerLabel: "Voir la bande-annonce",
     presentLabel: "Présent",
-    koreanOnlyLabel: "🇰🇷 K-dramas uniquement",
+    koreanOnlyLabel: "K-dramas uniquement",
     statusReturning: "En cours",
     statusEnded: "Terminée",
     statusCanceled: "Annulée",
@@ -182,7 +218,27 @@ const i18n = {
     maintenanceLabel: "Maintenance",
     refreshingProgress: "Rafraîchissement",
     refreshAllDone: "Séries mises à jour :",
-    refreshAllFailed: "Échecs :"
+    refreshAllFailed: "Échecs :",
+    searchLibraryPlaceholder: "Rechercher dans ma liste...",
+    upcomingTitle: "Prochainement",
+    undoLabel: "Annuler",
+    deletedToast: "retirée de ta liste",
+    settingStatsLabel: "Statistiques",
+    btnBilan: "Mon bilan",
+    bilanTitle: "Mon bilan",
+    bilanSub: "Un aperçu de ton parcours K-drama",
+    bilanShows: "Séries",
+    bilanEpisodes: "Épisodes vus",
+    bilanTime: "Temps passé",
+    bilanCompleted: "Terminées",
+    bilanFavorites: "Favoris",
+    bilanAvgRating: "Note moyenne",
+    bilanGenresTitle: "Genres favoris",
+    bilanNoData: "Ajoute quelques séries pour voir ton bilan !",
+    actorFilmographyTitle: "Connu(e) pour",
+    actorNoBio: "Aucune biographie disponible.",
+    actorLoadFailed: "Impossible de charger les infos de cette personne.",
+    bornLabel: "Naissance"
   }
 };
 
@@ -200,6 +256,15 @@ function applyLanguage(lang) {
   document.getElementById('ui-setting-data-label').textContent = t.dataLabel;
   document.getElementById('ui-setting-maintenance-label').textContent = t.maintenanceLabel;
   document.getElementById('ui-btn-refresh-all').textContent = t.refreshAllLabel;
+  document.getElementById('library-search-input').placeholder = t.searchLibraryPlaceholder;
+  document.getElementById('ui-upcoming-title').textContent = t.upcomingTitle;
+  document.getElementById('undo-toast-btn').textContent = t.undoLabel;
+  document.getElementById('ui-setting-stats-label').textContent = t.settingStatsLabel;
+  document.getElementById('ui-btn-bilan').textContent = t.btnBilan;
+  document.getElementById('ui-bilan-title').textContent = t.bilanTitle;
+  document.getElementById('ui-bilan-sub').textContent = t.bilanSub;
+  document.getElementById('ui-bilan-genres-title').textContent = t.bilanGenresTitle;
+  document.getElementById('ui-actor-filmography-title').textContent = t.actorFilmographyTitle;
   document.getElementById('ui-recs-modal-title').textContent = t.recsModalTitle;
   document.getElementById('ui-recs-modal-sub').textContent = t.recsModalSub;
   
@@ -214,6 +279,7 @@ function applyLanguage(lang) {
   document.getElementById('tab-favorites').textContent = t.tabFavorites;
 
   document.getElementById('opt-updated').textContent = t.optUpdated;
+  document.getElementById('opt-added').textContent = t.optAdded;
   document.getElementById('opt-title').textContent = t.optTitle;
   document.getElementById('opt-rating').textContent = t.optRating;
   document.getElementById('opt-progress').textContent = t.optProgress;
@@ -242,6 +308,8 @@ function applyLanguage(lang) {
 
   document.getElementById('btn-lang-en').classList.toggle('active', currentLang === 'en');
   document.getElementById('btn-lang-fr').classList.toggle('active', currentLang === 'fr');
+
+  renderDashboard();
 
   if (activeModalDramaId !== null) renderModalContent(activeModalDramaId);
 }
@@ -428,11 +496,63 @@ function saveDramas() {
   localStorage.setItem('tvtime_modal_kdrama_data', JSON.stringify(dramas));
   renderDashboard();
   renderPosters();
+  renderUpcoming();
   if (activeModalDramaId !== null) renderModalContent(activeModalDramaId);
 } 
 
+function formatShortDate(dateStr) {
+  try {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString(currentLang === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short' });
+  } catch (e) { return dateStr; }
+}
+
+async function renderUpcoming() {
+  const section = document.getElementById('upcoming-section');
+  const scroll = document.getElementById('upcoming-scroll');
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const upcoming = dramas
+    .filter(d => d.nextEpisodeDate && d.nextEpisodeDate >= todayStr)
+    .sort((a, b) => a.nextEpisodeDate.localeCompare(b.nextEpisodeDate));
+
+  if (upcoming.length === 0) {
+    section.style.display = 'none';
+    scroll.innerHTML = '';
+    return;
+  }
+
+  section.style.display = 'block';
+  scroll.innerHTML = '';
+
+  for (const drama of upcoming) {
+    let imageSrc = activeBlobUrls.get(drama.id);
+    if (!imageSrc) {
+      const blobUrl = await getPosterBlobUrl(drama.id);
+      imageSrc = blobUrl || drama.selectedPosterUrl || drama.fallbackPoster;
+      if (blobUrl) activeBlobUrls.set(drama.id, blobUrl);
+    }
+
+    const card = document.createElement('div');
+    card.className = 'upcoming-card';
+    card.onclick = () => openModal(drama.id);
+    card.innerHTML = `
+      <img src="${imageSrc}" alt="${drama.title}">
+      <div class="upcoming-date">${formatShortDate(drama.nextEpisodeDate)}</div>
+      <div class="upcoming-ep">${drama.title}${drama.nextSeasonNumber && drama.nextEpisodeNumber ? ` · S${drama.nextSeasonNumber}E${drama.nextEpisodeNumber}` : ''}</div>
+    `;
+    scroll.appendChild(card);
+  }
+}
+
+function changeSortOrder() {
+  localStorage.setItem('tvtime_sort', document.getElementById('sort-selector').value);
+  saveDramas();
+}
+
 function setFilter(filter, btn) {
   currentFilter = filter;
+  localStorage.setItem('tvtime_filter', filter);
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderPosters();
@@ -451,15 +571,95 @@ function renderDashboard() {
   const totalHours = Math.round(totalEpWatched * 1.0);
   const days = Math.floor(totalHours / 24);
   const remainingHours = totalHours % 24;
+  const dayUnit = currentLang === 'fr' ? 'j' : 'd';
 
   let timeString = `${totalHours}h`;
   if (days > 0) {
-    timeString = `${days}d ${remainingHours}h`;
+    timeString = `${days}${dayUnit} ${remainingHours}h`;
   }
 
   document.getElementById('dash-completed').textContent = completed;
   document.getElementById('dash-episodes').textContent = totalEpWatched;
   document.getElementById('dash-hours').textContent = timeString;
+}
+
+function openBilanModal() {
+  renderBilan();
+  document.getElementById('bilan-modal').classList.add('active');
+}
+function closeBilanModal() {
+  document.getElementById('bilan-modal').classList.remove('active');
+}
+function closeBilanModalOnBackdrop(e) {
+  if (e.target.id === 'bilan-modal') closeBilanModal();
+}
+
+function renderBilanBars(containerId, counts, total) {
+  const container = document.getElementById(containerId);
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  if (entries.length === 0) {
+    container.innerHTML = `<p style="font-size:0.8rem; color:var(--text-muted); font-style:italic;">—</p>`;
+    return;
+  }
+
+  container.innerHTML = entries.map(([label, count]) => {
+    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+    return `
+      <div class="bilan-bar-row">
+        <div class="bilan-bar-label"><span>${label}</span><span>${count}</span></div>
+        <div class="bilan-bar-track"><div class="bilan-bar-fill" style="width:${pct}%;"></div></div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderBilan() {
+  const t = i18n[currentLang];
+
+  if (dramas.length === 0) {
+    document.getElementById('bilan-stats-grid').innerHTML = `<p style="font-size:0.85rem; color:var(--text-muted); grid-column: 1/-1; text-align:center;">${t.bilanNoData}</p>`;
+    document.getElementById('bilan-genres-list').innerHTML = '';
+    return;
+  }
+
+  let totalEpWatched = 0;
+  let totalMinutesWatched = 0;
+  let completed = 0;
+  let favoritesCount = 0;
+  let ratedCount = 0;
+  let ratingSum = 0;
+  const genreCounts = {};
+
+  dramas.forEach(d => {
+    const watched = d.watchedEp.length;
+    totalEpWatched += watched;
+    totalMinutesWatched += watched * (d.runtime || 60);
+
+    if (watched === d.totalEp && d.totalEp > 0) completed++;
+    if (d.favorite) favoritesCount++;
+    if (d.rating > 0) { ratedCount++; ratingSum += d.rating; }
+
+    (d.genres || []).forEach(g => { genreCounts[g] = (genreCounts[g] || 0) + 1; });
+  });
+
+  const totalHours = Math.round(totalMinutesWatched / 60);
+  const days = Math.floor(totalHours / 24);
+  const remainingHours = totalHours % 24;
+  const dayUnit = currentLang === 'fr' ? 'j' : 'd';
+  const timeString = days > 0 ? `${days}${dayUnit} ${remainingHours}h` : `${totalHours}h`;
+  const avgRating = ratedCount > 0 ? (ratingSum / ratedCount).toFixed(1) : '—';
+
+  document.getElementById('bilan-stats-grid').innerHTML = `
+    <div class="bilan-stat-card"><div class="bilan-stat-value">${dramas.length}</div><div class="bilan-stat-label">${t.bilanShows}</div></div>
+    <div class="bilan-stat-card"><div class="bilan-stat-value">${totalEpWatched}</div><div class="bilan-stat-label">${t.bilanEpisodes}</div></div>
+    <div class="bilan-stat-card"><div class="bilan-stat-value">${timeString}</div><div class="bilan-stat-label">${t.bilanTime}</div></div>
+    <div class="bilan-stat-card"><div class="bilan-stat-value">${completed}</div><div class="bilan-stat-label">${t.bilanCompleted}</div></div>
+    <div class="bilan-stat-card"><div class="bilan-stat-value">${favoritesCount}</div><div class="bilan-stat-label">${t.bilanFavorites}</div></div>
+    <div class="bilan-stat-card"><div class="bilan-stat-value">${avgRating}${ratedCount > 0 ? ' / 5' : ''}</div><div class="bilan-stat-label">${t.bilanAvgRating}</div></div>
+  `;
+
+  renderBilanBars('bilan-genres-list', genreCounts, dramas.length);
 }
 
 function hideResults() {
@@ -492,9 +692,10 @@ function levenshtein(a, b) {
   return dp[m][n];
 }
 
-function saveKoreanOnlyPref() {
-  koreanOnlySearch = document.getElementById('korean-only-checkbox').checked;
+function toggleKoreanOnly() {
+  koreanOnlySearch = !koreanOnlySearch;
   localStorage.setItem('tvtime_korean_only', koreanOnlySearch ? '1' : '0');
+  document.getElementById('korean-only-btn').classList.toggle('active', koreanOnlySearch);
 }
 
 function filterKoreanOnly(shows) {
@@ -638,7 +839,7 @@ async function openPreviewModal(tmdbId, title, posterUrl, overview) {
       title, backdropUrl: meta.backdropUrl, posterUrl, overview: activePreview.overview,
       status: meta.status, yearStart: meta.yearStart, yearEnd: meta.yearEnd,
       runtime: meta.runtime, network: meta.network, genres: meta.genres,
-      voteAverage: meta.voteAverage, voteCount: meta.voteCount, trailerKey: meta.trailerKey
+      voteAverage: meta.voteAverage, voteCount: meta.voteCount, trailerKey: meta.trailerKey, logoUrl: meta.logoUrl
     });
   }
 }
@@ -667,8 +868,36 @@ function markAllFromPreview(dramaId) {
 }
 
 async function removeFromPreview(dramaId) {
-  await removeShowCore(dramaId);
-  closeModal();
+  const t = i18n[currentLang];
+  const drama = dramas.find(d => d.id === dramaId);
+
+  let posterBlob = null;
+  try { posterBlob = await getPosterBlob(dramaId); } catch (e) {}
+  const snapshot = drama ? JSON.parse(JSON.stringify(drama)) : null;
+
+  await removeShowCore(dramaId, { skipCloseModal: true });
+
+  if (!snapshot) {
+    closeModal();
+    return;
+  }
+
+  lastDeletedSnapshot = { drama: snapshot, posterBlob };
+  showUndoToast(`"${snapshot.title}" ${t.deletedToast}`);
+
+  // On reste sur la fiche plutôt que de fermer le modal : elle bascule
+  // simplement en mode aperçu ("pas encore ajoutée"), comme avant l'ajout.
+  activeModalDramaId = null;
+  activePreview = {
+    tmdbId: snapshot.tmdbId,
+    title: snapshot.title,
+    posterUrl: snapshot.selectedPosterUrl || snapshot.fallbackPoster,
+    overview: snapshot.overview
+  };
+  document.getElementById('modal-menu-btn').style.display = 'none';
+  document.getElementById('modal-menu-dropdown').classList.remove('open');
+  document.getElementById('owner-only-sections').style.display = 'none';
+  renderPrimaryActionBar(false, null);
 }
 
 async function fetchTrailerKey(tmdbId) {
@@ -702,6 +931,9 @@ async function fetchTmdbShowDetails(tmdbId) {
   let trailerKey = null;
   try { trailerKey = await fetchTrailerKey(tmdbId); } catch (e) {}
 
+  let logoUrl = null;
+  try { logoUrl = await fetchBestLogo(tmdbId); } catch (e) {}
+
   return {
     overview: details.overview || '',
     genres: (details.genres || []).map(g => g.name),
@@ -709,14 +941,35 @@ async function fetchTmdbShowDetails(tmdbId) {
     seasons: seasonsData,
     totalEp,
     trailerKey,
+    logoUrl,
     backdropUrl: details.backdrop_path ? `https://image.tmdb.org/t/p/w780${details.backdrop_path}` : null,
     runtime: (details.episode_run_time && details.episode_run_time[0]) || null,
     network: (details.networks && details.networks[0] && details.networks[0].name) || null,
     yearStart: details.first_air_date ? details.first_air_date.slice(0, 4) : null,
     yearEnd: details.last_air_date ? details.last_air_date.slice(0, 4) : null,
     voteAverage: typeof details.vote_average === 'number' ? details.vote_average : null,
-    voteCount: typeof details.vote_count === 'number' ? details.vote_count : null
+    voteCount: typeof details.vote_count === 'number' ? details.vote_count : null,
+    nextEpisodeDate: details.next_episode_to_air ? details.next_episode_to_air.air_date : null,
+    nextEpisodeNumber: details.next_episode_to_air ? details.next_episode_to_air.episode_number : null,
+    nextSeasonNumber: details.next_episode_to_air ? details.next_episode_to_air.season_number : null
   };
+}
+
+// Choisit le meilleur logo dispo : langue de l'app > version sans texte
+// (générique) > anglais > aucun (on garde alors le titre en texte).
+async function fetchBestLogo(tmdbId) {
+  const res = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/images?api_key=${TMDB_API_KEY}&include_image_language=en,null`);
+  const data = await res.json();
+  const logos = data.logos || [];
+  if (logos.length === 0) return null;
+
+  const byLang = (lang) => logos.filter(l => l.iso_639_1 === lang).sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0))[0];
+  const best = byLang('en') || byLang(null);
+  if (!best) return null;
+  // TMDB ne redimensionne pas les logos vectoriels : seule la taille
+  // "original" fonctionne pour les .svg, sinon l'image ne charge pas.
+  const size = best.file_path.endsWith('.svg') ? 'original' : 'w500';
+  return `https://image.tmdb.org/t/p/${size}${best.file_path}`;
 }
 
 async function addShowToLibrary(tmdbId, title, fallbackPosterUrl, overview = '') {
@@ -753,6 +1006,7 @@ async function addShowToLibrary(tmdbId, title, fallbackPosterUrl, overview = '')
     seasons: seasonsData,
     showStatus: meta ? meta.status : null,
     trailerKey: meta ? meta.trailerKey : null,
+    logoUrl: meta ? meta.logoUrl : null,
     backdropUrl: meta ? meta.backdropUrl : null,
     runtime: meta ? meta.runtime : null,
     network: meta ? meta.network : null,
@@ -760,12 +1014,16 @@ async function addShowToLibrary(tmdbId, title, fallbackPosterUrl, overview = '')
     yearEnd: meta ? meta.yearEnd : null,
     voteAverage: meta ? meta.voteAverage : null,
     voteCount: meta ? meta.voteCount : null,
+    nextEpisodeDate: meta ? meta.nextEpisodeDate : null,
+    nextEpisodeNumber: meta ? meta.nextEpisodeNumber : null,
+    nextSeasonNumber: meta ? meta.nextSeasonNumber : null,
     watchedEp: [], 
     overview: (meta && meta.overview) || overview || '', 
     rating: 0,
     favorite: false,
     rewatches: 0,
     genres: meta ? meta.genres : [],
+    addedAt: Date.now(),
     updatedAt: Date.now()
   });
   saveDramas(); 
@@ -787,7 +1045,7 @@ async function selectShowAndSave(tmdbId, title, fallbackPosterUrl, overview = ''
   openModal(dramaId);
 } 
 
-async function removeShowCore(dramaId) {
+async function removeShowCore(dramaId, options = {}) {
   await deletePosterBlob(dramaId);
   if (activeBlobUrls.has(dramaId)) {
     URL.revokeObjectURL(activeBlobUrls.get(dramaId));
@@ -795,7 +1053,7 @@ async function removeShowCore(dramaId) {
   }
   dramas = dramas.filter(d => d.id !== dramaId);
 
-  if (activeModalDramaId === dramaId) {
+  if (activeModalDramaId === dramaId && !options.skipCloseModal) {
     closeModal();
   }
   saveDramas();
@@ -833,6 +1091,7 @@ async function refreshShowMetadataCore(drama) {
     if (meta.genres) drama.genres = meta.genres;
     if (meta.status) drama.showStatus = meta.status;
     if (meta.trailerKey) drama.trailerKey = meta.trailerKey;
+    drama.logoUrl = meta.logoUrl;
     if (meta.backdropUrl) drama.backdropUrl = meta.backdropUrl;
     if (meta.runtime) drama.runtime = meta.runtime;
     if (meta.network) drama.network = meta.network;
@@ -840,6 +1099,9 @@ async function refreshShowMetadataCore(drama) {
     if (meta.yearEnd) drama.yearEnd = meta.yearEnd;
     if (meta.voteAverage != null) drama.voteAverage = meta.voteAverage;
     if (meta.voteCount != null) drama.voteCount = meta.voteCount;
+    drama.nextEpisodeDate = meta.nextEpisodeDate;
+    drama.nextEpisodeNumber = meta.nextEpisodeNumber;
+    drama.nextSeasonNumber = meta.nextSeasonNumber;
     drama.updatedAt = Date.now();
     return true;
   } catch (err) {
@@ -889,6 +1151,26 @@ function closePosterModalOnBackdrop(e) {
   if (e.target.id === 'poster-picker-modal') closePosterModal();
 }
 
+// Certains navigateurs mobiles (Samsung Internet notamment, en particulier
+// sur l'écran extérieur des téléphones pliables) ne calculent pas
+// correctement le ratio d'affiche via CSS (aspect-ratio ou padding-top en
+// pourcentage à l'intérieur d'une grille), ce qui fait apparaître des
+// cartes carrées. On force donc la hauteur en pixels réels, mesurés,
+// ce qui fonctionne quel que soit le moteur de rendu.
+function fixPosterCardHeights(containerEl) {
+  if (!containerEl) return;
+  const cards = containerEl.querySelectorAll('.poster-option-card');
+  cards.forEach(card => {
+    const w = card.offsetWidth;
+    if (w > 0) card.style.height = Math.round(w * 1.5) + 'px';
+  });
+}
+
+window.addEventListener('resize', () => {
+  fixPosterCardHeights(document.getElementById('modal-poster-picker'));
+  fixPosterCardHeights(document.getElementById('global-recs-grid'));
+});
+
 async function loadPosterOptions(drama) {
   const t = i18n[currentLang];
   const container = document.getElementById('modal-poster-picker');
@@ -922,6 +1204,8 @@ async function loadPosterOptions(drama) {
       card.innerHTML = `<img src="${fullUrl}" alt="Poster Option">`;
       container.appendChild(card);
     });
+
+    requestAnimationFrame(() => fixPosterCardHeights(container));
   } catch (e) {
     container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); grid-column: 1/-1; text-align: center;">${t.failedPosters}</span>`;
   }
@@ -967,7 +1251,7 @@ async function openGlobalRecommendations() {
     } catch (e) {}
   }
 
-  const results = Array.from(pool.values())
+  const results = filterKoreanOnly(Array.from(pool.values()))
     .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0))
     .slice(0, 24);
 
@@ -983,7 +1267,7 @@ async function openGlobalRecommendations() {
     card.className = 'poster-option-card';
     card.title = show.name;
     card.innerHTML = posterUrl
-      ? `<img src="${posterUrl}" alt="${show.name}">`
+      ? `<img src="${posterUrl}" alt="${show.name}"><div class="poster-overlay"><div class="overlay-title">${show.name}</div></div>`
       : `<span style="position:absolute; inset:0; font-size:0.7rem; color:var(--text-muted); display:flex; align-items:center; justify-content:center; text-align:center; padding: 0.3rem;">${show.name}</span>`;
     card.onclick = () => {
       closeGlobalRecommendations();
@@ -991,6 +1275,8 @@ async function openGlobalRecommendations() {
     };
     container.appendChild(card);
   });
+
+  requestAnimationFrame(() => fixPosterCardHeights(container));
 }
 
 async function changeDramaPoster(dramaId, newPosterUrl) {
@@ -1118,6 +1404,45 @@ function adjustRewatch(delta) {
   saveDramas();
 }
 
+let lastDeletedSnapshot = null;
+let undoTimeoutId = null;
+
+function showUndoToast(message) {
+  const toast = document.getElementById('undo-toast');
+  document.getElementById('undo-toast-message').textContent = message;
+  toast.classList.add('show');
+  clearTimeout(undoTimeoutId);
+  undoTimeoutId = setTimeout(() => {
+    toast.classList.remove('show');
+    lastDeletedSnapshot = null;
+  }, 6000);
+}
+
+function hideUndoToast() {
+  document.getElementById('undo-toast').classList.remove('show');
+  clearTimeout(undoTimeoutId);
+}
+
+async function undoDelete() {
+  if (!lastDeletedSnapshot) return;
+  const { drama, posterBlob } = lastDeletedSnapshot;
+  dramas.push(drama);
+  if (posterBlob) {
+    try { await storePosterBlob(drama.id, posterBlob); } catch (e) {}
+  }
+  lastDeletedSnapshot = null;
+  hideUndoToast();
+  saveDramas();
+
+  if (activePreview && activePreview.tmdbId === drama.tmdbId) {
+    activePreview = null;
+    activeModalDramaId = drama.id;
+    document.getElementById('modal-menu-btn').style.display = '';
+    document.getElementById('owner-only-sections').style.display = '';
+    renderModalContent(drama.id);
+  }
+}
+
 async function deleteDrama(dramaId) {
   const t = i18n[currentLang];
 
@@ -1126,7 +1451,16 @@ async function deleteDrama(dramaId) {
 
   if (!confirm(`${t.confirmDelete} "${showTitle}"?`)) return;
 
+  let posterBlob = null;
+  try { posterBlob = await getPosterBlob(dramaId); } catch (e) {}
+  const snapshot = drama ? JSON.parse(JSON.stringify(drama)) : null;
+
   await removeShowCore(dramaId);
+
+  if (snapshot) {
+    lastDeletedSnapshot = { drama: snapshot, posterBlob };
+    showUndoToast(`"${showTitle}" ${t.deletedToast}`);
+  }
 } 
 
 /* --- CLEAN POSTER RENDER LOGIC --- */
@@ -1137,19 +1471,29 @@ async function renderPosters() {
   grid.innerHTML = ''; 
 
   const sortBy = document.getElementById('sort-selector').value;
+  const searchQuery = (document.getElementById('library-search-input').value || '').trim().toLowerCase();
 
   let filtered = dramas.filter(drama => {
     const count = drama.watchedEp.length;
-    if (currentFilter === 'watching') return count > 0 && count < drama.totalEp;
-    if (currentFilter === 'completed') return count === drama.totalEp && drama.totalEp > 0;
-    if (currentFilter === 'plan') return count === 0;
-    if (currentFilter === 'favorites') return drama.favorite;
+    let matchesTab = true;
+    if (currentFilter === 'watching') matchesTab = count > 0 && count < drama.totalEp;
+    else if (currentFilter === 'completed') matchesTab = count === drama.totalEp && drama.totalEp > 0;
+    else if (currentFilter === 'plan') matchesTab = count === 0;
+    else if (currentFilter === 'favorites') matchesTab = drama.favorite;
+    if (!matchesTab) return false;
+
+    if (searchQuery) {
+      const inTitle = drama.title.toLowerCase().includes(searchQuery);
+      const inGenres = (drama.genres || []).some(g => g.toLowerCase().includes(searchQuery));
+      if (!inTitle && !inGenres) return false;
+    }
     return true;
   });
 
   filtered.sort((a, b) => {
     if (sortBy === 'title') return a.title.localeCompare(b.title);
     if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
+    if (sortBy === 'added') return (b.addedAt || b.updatedAt || 0) - (a.addedAt || a.updatedAt || 0);
     if (sortBy === 'progress') {
       const pctA = (a.watchedEp.length / a.totalEp) || 0;
       const pctB = (b.watchedEp.length / b.totalEp) || 0;
@@ -1221,6 +1565,7 @@ async function loadCast(tmdbId) {
       const profileUrl = actor.profile_path ? `https://image.tmdb.org/t/p/w185${actor.profile_path}` : 'https://via.placeholder.com/100x100?text=No+Photo';
       const card = document.createElement('div');
       card.className = 'actor-card';
+      card.onclick = () => openActorModal(actor.id);
       card.innerHTML = `
         <img src="${profileUrl}" alt="${actor.name}">
         <div class="actor-name">${actor.name}</div>
@@ -1230,6 +1575,74 @@ async function loadCast(tmdbId) {
     });
   } catch (e) {
     container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted);">${t.failedCast}</span>`;
+  }
+}
+
+function closeActorModal() {
+  document.getElementById('actor-modal').classList.remove('active');
+}
+function closeActorModalOnBackdrop(e) {
+  if (e.target.id === 'actor-modal') closeActorModal();
+}
+
+async function openActorModal(personId) {
+  const t = i18n[currentLang];
+  document.getElementById('actor-modal').classList.add('active');
+  document.getElementById('actor-detail-photo').src = '';
+  document.getElementById('actor-detail-name').textContent = '';
+  document.getElementById('actor-detail-meta').textContent = '';
+  document.getElementById('actor-detail-bio').textContent = '';
+  document.getElementById('actor-filmography-scroll').innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted);">${t.loadingCast}</span>`;
+
+  try {
+    const [personRes, creditsRes] = await Promise.all([
+      fetch(`https://api.themoviedb.org/3/person/${personId}?api_key=${TMDB_API_KEY}&language=${currentLang === 'fr' ? 'fr-FR' : 'en-US'}`),
+      fetch(`https://api.themoviedb.org/3/person/${personId}/tv_credits?api_key=${TMDB_API_KEY}&language=${currentLang === 'fr' ? 'fr-FR' : 'en-US'}`)
+    ]);
+    const person = await personRes.json();
+    const credits = await creditsRes.json();
+
+    const photoUrl = person.profile_path ? `https://image.tmdb.org/t/p/w300${person.profile_path}` : 'https://via.placeholder.com/200x300?text=No+Photo';
+    document.getElementById('actor-detail-photo').src = photoUrl;
+    document.getElementById('actor-detail-name').textContent = person.name || '';
+
+    const metaParts = [];
+    if (person.birthday) {
+      const dateStr = new Date(person.birthday + 'T00:00:00').toLocaleDateString(currentLang === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+      metaParts.push(`${t.bornLabel} : ${dateStr}`);
+    }
+    if (person.place_of_birth) metaParts.push(person.place_of_birth);
+    document.getElementById('actor-detail-meta').textContent = metaParts.join(' · ');
+
+    document.getElementById('actor-detail-bio').textContent = person.biography && person.biography.trim() ? person.biography : t.actorNoBio;
+
+    const scroll = document.getElementById('actor-filmography-scroll');
+    const filmography = (credits.cast || [])
+      .filter(c => c.poster_path)
+      .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+      .slice(0, 12);
+
+    if (filmography.length === 0) {
+      scroll.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted);">${t.noCastFound}</span>`;
+    } else {
+      scroll.innerHTML = '';
+      filmography.forEach(show => {
+        const posterUrl = `https://image.tmdb.org/t/p/w200${show.poster_path}`;
+        const card = document.createElement('div');
+        card.className = 'trending-card';
+        card.onclick = () => {
+          closeActorModal();
+          const existing = dramas.find(d => d.tmdbId === show.id);
+          if (existing) openModal(existing.id);
+          else openPreviewModal(show.id, show.name, posterUrl, show.overview);
+        };
+        card.innerHTML = `<img src="${posterUrl}" alt="${show.name}"><div class="title">${show.name}</div>`;
+        scroll.appendChild(card);
+      });
+    }
+  } catch (e) {
+    document.getElementById('actor-detail-bio').textContent = t.actorLoadFailed;
+    document.getElementById('actor-filmography-scroll').innerHTML = '';
   }
 }
 
@@ -1247,12 +1660,14 @@ async function loadRecommendations(tmdbId) {
     const data = await res.json();
     container.innerHTML = '';
 
-    if (!data.results || data.results.length === 0) {
+    const filteredResults = filterKoreanOnly(data.results || []);
+
+    if (filteredResults.length === 0) {
       container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted);">${t.noRecsFound}</span>`;
       return;
     }
 
-    data.results.slice(0, 8).forEach(show => {
+    filteredResults.slice(0, 8).forEach(show => {
       const posterUrl = show.poster_path ? `https://image.tmdb.org/t/p/w300${show.poster_path}` : 'https://via.placeholder.com/300x450';
       const isAlreadyAdded = dramas.some(d => d.tmdbId === show.id || d.title.toLowerCase() === show.name.toLowerCase());
 
@@ -1362,7 +1777,22 @@ function populateSharedModalFields(meta) {
   const t = i18n[currentLang];
 
   document.getElementById('modal-banner-img').src = meta.backdropUrl || meta.posterUrl || '';
-  document.getElementById('modal-drama-title').textContent = meta.title;
+
+  const titleEl = document.getElementById('modal-drama-title');
+  const logoWrap = document.getElementById('banner-logo-wrap');
+  const logoEl = document.getElementById('modal-banner-logo');
+  if (meta.logoUrl) {
+    logoEl.src = meta.logoUrl;
+    logoEl.alt = meta.title;
+    logoWrap.style.display = 'flex';
+    titleEl.style.display = 'none';
+  } else {
+    logoWrap.style.display = 'none';
+    logoEl.src = '';
+    titleEl.style.display = '';
+    titleEl.textContent = meta.title;
+  }
+
   document.getElementById('modal-info-line').textContent = buildInfoLine(t, meta);
 
   const overviewEl = document.getElementById('modal-overview-text');
@@ -1398,9 +1828,8 @@ function renderPrimaryActionBar(isAdded, dramaId) {
     btnA.setAttribute('aria-label', t.previewRemove);
     btnA.onclick = () => removeFromPreview(dramaId);
 
-    // Toggle the .is-active class based on whether all episodes are completed
-    btnB.className = `action-morph role-watched ${isCompleted ? 'is-active' : ''}`;
-    btnB.innerHTML = `<span class="checkmark">✓</span> &nbsp; ${isCompleted ? t.unmarkAll : t.previewMarkWatched}`;
+    btnB.className = 'action-morph role-watched' + (isCompleted ? ' is-done' : '');
+    btnB.innerHTML = `✓ ${isCompleted ? t.completedLabel : t.previewMarkWatched}`;
     btnB.onclick = () => markAllFromPreview(dramaId);
   } else {
     btnA.className = 'action-morph role-add';
@@ -1414,16 +1843,23 @@ function renderPrimaryActionBar(isAdded, dramaId) {
   }
 }
 
-
-
 function renderEpisodesFeed(drama) {
   let epRowsHTML = '';
   const seasonsList = (drama.seasons && drama.seasons.length > 0)
     ? drama.seasons
     : [{ season_number: 1, name: "Season 1", episode_count: drama.totalEp }];
 
+  // Ouvre la saison actuellement en cours de visionnage — la première
+  // qui n'est pas entièrement vue — ou la dernière si tout a été vu.
+  let currentSeasonIndex = seasonsList.findIndex(season => {
+    const keys = [];
+    for (let i = 1; i <= season.episode_count; i++) keys.push(`S${season.season_number}E${i}`);
+    return !(keys.length > 0 && keys.every(k => drama.watchedEp.includes(k)));
+  });
+  if (currentSeasonIndex === -1) currentSeasonIndex = seasonsList.length - 1;
+
   seasonsList.forEach((season, index) => {
-    const isOpenAttr = index === 0 ? 'open' : '';
+    const isOpenAttr = index === currentSeasonIndex ? 'open' : '';
     const seasonKeys = [];
     for (let i = 1; i <= season.episode_count; i++) seasonKeys.push(`S${season.season_number}E${i}`);
     const seasonFullyWatched = seasonKeys.length > 0 && seasonKeys.every(k => drama.watchedEp.includes(k));
@@ -1495,7 +1931,8 @@ async function renderModalContent(dramaId) {
     genres: drama.genres,
     voteAverage: drama.voteAverage,
     voteCount: drama.voteCount,
-    trailerKey: drama.trailerKey
+    trailerKey: drama.trailerKey,
+    logoUrl: drama.logoUrl
   });
 
   renderPrimaryActionBar(true, drama.id);
@@ -1523,6 +1960,16 @@ async function renderModalContent(dramaId) {
 } 
 
 applyLanguage(currentLang);
-document.getElementById('korean-only-checkbox').checked = koreanOnlySearch;
+document.getElementById('korean-only-btn').classList.toggle('active', koreanOnlySearch);
+document.getElementById('app-version-footer').textContent = `Bingeul v${APP_VERSION}`;
+
+const savedSort = localStorage.getItem('tvtime_sort');
+if (savedSort) document.getElementById('sort-selector').value = savedSort;
+
+document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+const savedTabBtn = document.getElementById('tab-' + currentFilter);
+if (savedTabBtn) savedTabBtn.classList.add('active');
+
 renderDashboard();
 renderPosters();
+renderUpcoming();

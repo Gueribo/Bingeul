@@ -1,8 +1,8 @@
-const CACHE_NAME = 'bingeul-tvtime-v2'; // 1. Incremented version
+const CACHE_NAME = 'bingeul-tvtime-v3';
 const APP_SHELL = [
   './index.html',
-  './styles.css',               // 2. Added separated CSS
-  './app.js',                   // 2. Added separated JS
+  './style.css',
+  './app.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
@@ -35,18 +35,20 @@ self.addEventListener('fetch', (event) => {
   // l'app gère déjà elle-même les échecs de ces appels quand hors-ligne.
   if (url.origin !== self.location.origin) return;
 
+  // Réseau d'abord : si le site est joignable (ex. GitHub Pages
+  // temporairement réactivé), on récupère toujours la toute dernière
+  // version et on met le cache à jour. S'il est injoignable (cas normal
+  // ici, Pages désactivé la plupart du temps, ou vraiment hors-ligne),
+  // on se rabat immédiatement sur la version en cache.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const network = fetch(event.request)
-        .then((response) => {
-          if (response && response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(event.request)
+      .then((response) => {
+        if (response && response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
