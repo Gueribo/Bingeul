@@ -172,7 +172,7 @@
         <p id="modal-overview-text"></p>
       </div>
 
-      <a class="link-row" id="modal-trailer-row" href="#" target="_blank" rel="noopener" style="display:none;">
+      <a class="link-row" id="modal-trailer-row" href="#" onclick="openTrailerPlayer(event)" style="display:none;">
         <span>▶ <span id="ui-trailer-label">Watch trailer</span></span>
         <span class="chevron">›</span>
       </a>
@@ -372,6 +372,12 @@
       </div>
     </div>
   </div>
+</div>
+
+<div id="trailer-player-overlay" class="trailer-player-overlay">
+  <button class="trailer-close-btn" onclick="closeTrailerPlayer()">✕</button>
+  <a id="trailer-fallback-link" class="trailer-fallback-link" href="#" target="_blank" rel="noopener">Regarder sur YouTube ↗</a>
+  <iframe id="trailer-iframe" src="" allow="autoplay; fullscreen; encrypted-media" allowfullscreen frameborder="0"></iframe>
 </div>
 
 <div id="undo-toast" class="undo-toast">

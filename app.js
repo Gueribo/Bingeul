@@ -73,6 +73,7 @@ const i18n = {
     unrated: "Unrated",
     noOverview: "No summary available.",
     trailerLabel: "Watch trailer",
+    trailerFallback: "Watch on YouTube ↗",
     presentLabel: "Present",
     koreanOnlyLabel: "K-dramas only",
     statusReturning: "Ongoing",
@@ -183,6 +184,7 @@ const i18n = {
     unrated: "Non noté",
     noOverview: "Aucun résumé disponible.",
     trailerLabel: "Voir la bande-annonce",
+    trailerFallback: "Regarder sur YouTube ↗",
     presentLabel: "Présent",
     koreanOnlyLabel: "K-dramas uniquement",
     statusReturning: "En cours",
@@ -299,6 +301,7 @@ function applyLanguage(lang) {
   document.getElementById('ui-cast-title').textContent = t.castTitle;
   document.getElementById('ui-recommendations-title').textContent = t.recommendationsTitle;
   document.getElementById('ui-trailer-label').textContent = t.trailerLabel;
+  document.getElementById('trailer-fallback-link').textContent = t.trailerFallback;
   document.getElementById('ui-korean-only').textContent = t.koreanOnlyLabel;
 
   document.getElementById('ui-poster-modal-title').textContent = t.posterModalTitle;
@@ -830,6 +833,38 @@ function bookmarkIconSVG(filled) {
 }
 
 let modalReturnTo = null; // null | 'search' | 'recommendations'
+
+function openTrailerPlayer(event) {
+  event.preventDefault();
+  const trailerKey = event.currentTarget.dataset.trailerKey;
+  if (!trailerKey) return;
+
+  const overlay = document.getElementById('trailer-player-overlay');
+  const iframe = document.getElementById('trailer-iframe');
+  iframe.src = `https://www.youtube.com/embed/${trailerKey}?autoplay=1&playsinline=1`;
+  document.getElementById('trailer-fallback-link').href = `https://www.youtube.com/watch?v=${trailerKey}`;
+  overlay.style.display = 'flex';
+
+  // Plein écran automatique : le clic qui a mené ici compte comme un
+  // vrai geste utilisateur, donc le navigateur autorise la demande.
+  const request = overlay.requestFullscreen || overlay.webkitRequestFullscreen;
+  if (request) request.call(overlay).catch(() => {});
+}
+
+function closeTrailerPlayer() {
+  const overlay = document.getElementById('trailer-player-overlay');
+  document.getElementById('trailer-iframe').src = '';
+  overlay.style.display = 'none';
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const overlay = document.getElementById('trailer-player-overlay');
+  if (!document.fullscreenElement && overlay.style.display === 'flex') {
+    document.getElementById('trailer-iframe').src = '';
+    overlay.style.display = 'none';
+  }
+});
 
 async function openPreviewModal(tmdbId, title, posterUrl, overview, returnTo = null) {
   activeModalDramaId = null;
@@ -1857,9 +1892,11 @@ function populateSharedModalFields(meta) {
   const trailerRow = document.getElementById('modal-trailer-row');
   if (meta.trailerKey) {
     trailerRow.href = `https://www.youtube.com/watch?v=${meta.trailerKey}`;
+    trailerRow.dataset.trailerKey = meta.trailerKey;
     trailerRow.style.display = 'flex';
   } else {
     trailerRow.style.display = 'none';
+    delete trailerRow.dataset.trailerKey;
   }
 }
 
