@@ -1247,7 +1247,7 @@ async function openGlobalRecommendations() {
 
   sourceShows = sourceShows
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-    .slice(0, 6);
+    .slice(0, 10);
 
   if (sourceShows.length === 0) {
     container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); grid-column: 1/-1; text-align: center;">${t.noRecsSource}</span>`;
@@ -1265,9 +1265,25 @@ async function openGlobalRecommendations() {
     } catch (e) {}
   }
 
-  const results = filterKoreanOnly(Array.from(pool.values()))
-    .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0))
-    .slice(0, 24);
+  const similarResults = filterKoreanOnly(Array.from(pool.values()))
+    .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+
+  // Complète avec des séries populaires en général (pas forcément liées
+  // à ta liste) si tu veux voir davantage de choix.
+  const extra = new Map();
+  for (let page = 1; page <= 3; page++) {
+    try {
+      const res = await fetch(`https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_API_KEY}&page=${page}`);
+      const data = await res.json();
+      (data.results || []).forEach(r => {
+        if (!existingTmdbIds.has(r.id) && !pool.has(r.id) && !extra.has(r.id)) extra.set(r.id, r);
+      });
+    } catch (e) {}
+  }
+  const popularResults = filterKoreanOnly(Array.from(extra.values()))
+    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+
+  const results = [...similarResults, ...popularResults].slice(0, 60);
 
   if (results.length === 0) {
     container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); grid-column: 1/-1; text-align: center;">${t.noRecsFound}</span>`;
