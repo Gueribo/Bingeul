@@ -380,8 +380,10 @@
 </div>
 
 <div id="trailer-player-overlay" class="trailer-player-overlay">
-  <button class="trailer-close-btn" onclick="closeTrailerPlayer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-  <a id="trailer-fallback-link" class="trailer-fallback-link" href="#" target="_blank" rel="noopener">Regarder sur YouTube</a>
+  <div class="trailer-top-controls">
+    <button class="trailer-close-btn" onclick="closeTrailerPlayer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    <a id="trailer-fallback-link" class="trailer-fallback-link" href="#" target="_blank" rel="noopener">Regarder sur YouTube</a>
+  </div>
   <iframe id="trailer-iframe" src="" allow="autoplay; fullscreen; encrypted-media" allowfullscreen frameborder="0"></iframe>
 </div>
 
