@@ -82,15 +82,6 @@ body {
   height: 110px;
   animation: splash-pulse 1.4s ease-in-out infinite;
 }
-.app-splash.leaving {
-  pointer-events: none;
-}
-.app-splash.leaving .splash-logo {
-  animation: none;
-  transform: translate(var(--splash-dx, 0), var(--splash-dy, -46vh)) scale(var(--splash-scale, 0.32));
-  opacity: 0;
-  transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease 0.15s;
-}
 @keyframes splash-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.06); }
@@ -602,6 +593,11 @@ input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent-yell
   justify-content: center;
   z-index: 3001;
 }
+.trailer-close-btn svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
 .trailer-fallback-link {
   position: absolute;
   top: 0.85rem;
@@ -863,6 +859,11 @@ input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent-yell
   justify-content: center;
   z-index: 10;
 }
+.modal-close-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
 
 /* Banner Header */
 .modal-banner {
@@ -902,6 +903,16 @@ input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent-yell
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   backdrop-filter: blur(4px);
+}
+.banner-back-btn svg {
+  width: 19px;
+  height: 19px;
+  display: block;
+}
+.banner-menu-btn svg {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 .banner-title {
   position: absolute;
@@ -1204,8 +1215,6 @@ details[open] summary.season-header::after { transform: rotate(180deg); }
     transition: transform 0.25s ease, opacity 0.25s ease;
   }
   .modal-overlay.active .modal-card { transform: scale(1) !important; }
-  .modal-header-mobile { padding: 1.5rem 1.5rem 0.5rem 1.5rem; }
-  .modal-poster-box { width: 120px; min-width: 120px; }
 }
 
 /* Grand écran (tablette, pliable déplié) : bannière fixe à gauche sur

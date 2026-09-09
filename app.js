@@ -49,7 +49,6 @@ const i18n = {
     optRating: "My Rating",
     optProgress: "Progress %",
     resultsTitle: "Tap a show to add:",
-    btnCloseResults: "✕",
     rewatchedLabel: "Rewatched:",
     progressLabel: "Progress",
     overviewTitle: "Overview",
@@ -64,7 +63,6 @@ const i18n = {
     themeNight: "🌙 Night",
     themePastel: "🌸 Pastel",
     noShowsFound: "No shows found.",
-    alreadyInList: "is already in your list!",
     previewAdd: "Add to my list",
     previewMarkWatched: "Mark as watched",
     completedLabel: "Completed",
@@ -73,7 +71,7 @@ const i18n = {
     unrated: "Unrated",
     noOverview: "No summary available.",
     trailerLabel: "Watch trailer",
-    trailerFallback: "Watch on YouTube ↗",
+    trailerFallback: "Watch on YouTube",
     presentLabel: "Present",
     koreanOnlyLabel: "K-dramas only",
     statusReturning: "Ongoing",
@@ -160,7 +158,6 @@ const i18n = {
     optRating: "Ma Note",
     optProgress: "Progression %",
     resultsTitle: "Appuyez sur une série pour l'ajouter :",
-    btnCloseResults: "✕",
     rewatchedLabel: "Revu :",
     progressLabel: "Progression",
     overviewTitle: "Aperçu",
@@ -175,7 +172,6 @@ const i18n = {
     themeNight: "🌙 Mode Nuit",
     themePastel: "🌸 Mode Pastel",
     noShowsFound: "Aucune série trouvée.",
-    alreadyInList: "est déjà dans votre liste !",
     previewAdd: "Ajouter à ma liste",
     previewMarkWatched: "Marquer comme vu",
     completedLabel: "Terminé",
@@ -184,7 +180,7 @@ const i18n = {
     unrated: "Non noté",
     noOverview: "Aucun résumé disponible.",
     trailerLabel: "Voir la bande-annonce",
-    trailerFallback: "Regarder sur YouTube ↗",
+    trailerFallback: "Regarder sur YouTube",
     presentLabel: "Présent",
     koreanOnlyLabel: "K-dramas uniquement",
     statusReturning: "En cours",
@@ -293,7 +289,6 @@ function applyLanguage(lang) {
   document.getElementById('opt-progress').textContent = t.optProgress;
 
   document.getElementById('ui-results-title').textContent = t.resultsTitle;
-  document.getElementById('ui-btn-close-results').textContent = t.btnCloseResults;
 
   document.getElementById('ui-rewatched-label').textContent = t.rewatchedLabel;
   document.getElementById('ui-progress-label').textContent = t.progressLabel;
@@ -907,14 +902,6 @@ async function openPreviewModal(tmdbId, title, posterUrl, overview, returnTo = n
   }
 }
 
-function closePreviewModal() {
-  closeModal();
-}
-
-function closePreviewModalOnBackdrop(e) {
-  closeModalOnBackdrop(e);
-}
-
 async function addFromPreview() {
   if (!activePreview) return;
   const { tmdbId, title, posterUrl, overview } = activePreview;
@@ -1092,21 +1079,6 @@ async function addShowToLibrary(tmdbId, title, fallbackPosterUrl, overview = '')
   saveDramas(); 
   return dramaId;
 }
-
-async function selectShowAndSave(tmdbId, title, fallbackPosterUrl, overview = '') {
-  const t = i18n[currentLang];
-  const isAlreadyInList = dramas.some(
-    d => d.tmdbId === tmdbId || d.title.toLowerCase() === title.toLowerCase()
-  );
-  if (isAlreadyInList) {
-    alert(`"${title}" ${t.alreadyInList}`);
-    return;
-  }
-  const dramaId = await addShowToLibrary(tmdbId, title, fallbackPosterUrl, overview);
-  hideResults();
-  clearSearchInput();
-  openModal(dramaId);
-} 
 
 async function removeShowCore(dramaId, options = {}) {
   await deletePosterBlob(dramaId);
@@ -2109,17 +2081,42 @@ if (appSplash) {
   setTimeout(() => {
     const splashLogo = appSplash.querySelector('.splash-logo');
     const targetLogo = document.querySelector('header .app-logo');
-    if (splashLogo && targetLogo) {
+
+    if (splashLogo && targetLogo && splashLogo.animate) {
+      splashLogo.style.animation = 'none'; // stoppe la pulsation en boucle
       const from = splashLogo.getBoundingClientRect();
       const to = targetLogo.getBoundingClientRect();
       const scale = to.width / from.width;
       const dx = (to.left + to.width / 2) - (from.left + from.width / 2);
       const dy = (to.top + to.height / 2) - (from.top + from.height / 2);
-      splashLogo.style.setProperty('--splash-dx', `${dx}px`);
-      splashLogo.style.setProperty('--splash-dy', `${dy}px`);
-      splashLogo.style.setProperty('--splash-scale', scale);
+
+      const anim = splashLogo.animate([
+        { transform: 'translate(0px, 0px) scale(1)', opacity: 1, offset: 0 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 1, offset: 0.78 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0, offset: 1 }
+      ], {
+        duration: 700,
+        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        fill: 'forwards'
+      });
+      // Le fond plein écran s'efface en même temps que le logo, sur la
+      // même dernière phase, pour un fondu global plutôt qu'une coupure
+      // nette du fond après le logo.
+      appSplash.animate([
+        { opacity: 1, offset: 0 },
+        { opacity: 1, offset: 0.78 },
+        { opacity: 0, offset: 1 }
+      ], {
+        duration: 700,
+        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+        fill: 'forwards'
+      });
+      anim.onfinish = () => appSplash.remove();
+      anim.oncancel = () => appSplash.remove();
+    } else {
+      // Repli si l'animation JS n'est pas disponible ou si la cible
+      // n'a pas été trouvée : on retire l'écran directement.
+      appSplash.remove();
     }
-    appSplash.classList.add('leaving');
-    setTimeout(() => appSplash.remove(), 650);
   }, 650);
 }
