@@ -326,11 +326,17 @@
 
       <div class="settings-group">
         <label class="settings-label" id="ui-setting-maintenance-label">Maintenance</label>
-        <div style="display:flex; gap:0.5rem;">
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
           <button class="btn-sync" id="btn-refresh-all" onclick="refreshAllShows()">
             <div class="btn-stacked-content">
               <span class="btn-icon">🔄</span>
               <span class="btn-label" id="ui-btn-refresh-all">Refresh all shows</span>
+            </div>
+          </button>
+          <button class="btn-sync" id="btn-check-updates" onclick="checkForAppUpdates()">
+            <div class="btn-stacked-content">
+              <span class="btn-icon">📡</span>
+              <span class="btn-label" id="ui-btn-check-updates">Check for updates</span>
             </div>
           </button>
         </div>

@@ -106,6 +106,12 @@ const i18n = {
     metaNoId: "Cannot refresh: missing TMDB ID.",
     metaFailed: "Failed to refresh show metadata.",
     refreshAllLabel: "Refresh all shows",
+    checkUpdatesLabel: "Check for updates",
+    checkingUpdates: "Checking...",
+    updateCheckDone: "file(s) up to date.",
+    updateCheckFailed: "Couldn't reach GitHub Pages — is it currently enabled?",
+    reloadPrompt: "Reload the app now to see the update?",
+    updateCheckUnsupported: "Not available in this browsing mode.",
     maintenanceLabel: "Maintenance",
     refreshingProgress: "Refreshing",
     refreshAllDone: "Shows updated:",
@@ -215,6 +221,12 @@ const i18n = {
     metaNoId: "Impossible de rafraîchir : ID TMDB manquant.",
     metaFailed: "Échec du rafraîchissement des métadonnées.",
     refreshAllLabel: "Tout rafraîchir",
+    checkUpdatesLabel: "Vérifier les mises à jour",
+    checkingUpdates: "Vérification...",
+    updateCheckDone: "fichier(s) à jour.",
+    updateCheckFailed: "Impossible de joindre GitHub Pages — est-il bien activé en ce moment ?",
+    reloadPrompt: "Recharger l'app maintenant pour voir la mise à jour ?",
+    updateCheckUnsupported: "Non disponible dans ce mode de navigation.",
     maintenanceLabel: "Maintenance",
     refreshingProgress: "Rafraîchissement",
     refreshAllDone: "Séries mises à jour :",
@@ -258,6 +270,7 @@ function applyLanguage(lang) {
   document.getElementById('ui-setting-data-label').textContent = t.dataLabel;
   document.getElementById('ui-setting-maintenance-label').textContent = t.maintenanceLabel;
   document.getElementById('ui-btn-refresh-all').textContent = t.refreshAllLabel;
+  document.getElementById('ui-btn-check-updates').textContent = t.checkUpdatesLabel;
   document.getElementById('library-search-input').placeholder = t.searchLibraryPlaceholder;
   document.getElementById('ui-upcoming-title').textContent = t.upcomingTitle;
   document.getElementById('undo-toast-btn').textContent = t.undoLabel;
@@ -2119,4 +2132,59 @@ if (appSplash) {
       appSplash.remove();
     }
   }, 650);
+}
+
+// Vérifier les mises à jour : à utiliser quand GitHub Pages est
+// temporairement réactivé, pour forcer une resynchronisation immédiate
+// de tous les fichiers plutôt que d'attendre le prochain hasard réseau.
+function checkForAppUpdates() {
+  const t = i18n[currentLang];
+  const btn = document.getElementById('btn-check-updates');
+  const label = document.getElementById('ui-btn-check-updates');
+
+  if (!('serviceWorker' in navigator) || location.protocol === 'file:') {
+    alert(t.updateCheckUnsupported);
+    return;
+  }
+
+  const originalText = label.textContent;
+  btn.disabled = true;
+  label.textContent = t.checkingUpdates;
+
+  navigator.serviceWorker.ready.then((reg) => {
+    if (reg.active) {
+      reg.active.postMessage('CHECK_FOR_UPDATES');
+    } else {
+      btn.disabled = false;
+      label.textContent = originalText;
+      alert(t.updateCheckFailed);
+    }
+  });
+
+  // Filet de sécurité : si aucune réponse ne revient (site injoignable),
+  // on débloque le bouton après quelques secondes.
+  setTimeout(() => {
+    if (btn.disabled) {
+      btn.disabled = false;
+      label.textContent = originalText;
+    }
+  }, 8000);
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (!event.data || event.data.type !== 'UPDATE_CHECK_DONE') return;
+    const t = i18n[currentLang];
+    const btn = document.getElementById('btn-check-updates');
+    const label = document.getElementById('ui-btn-check-updates');
+    btn.disabled = false;
+    label.textContent = t.checkUpdatesLabel;
+
+    if (event.data.success === 0) {
+      alert(t.updateCheckFailed);
+    } else {
+      alert(`${event.data.success}/${event.data.total} ${t.updateCheckDone}`);
+      if (confirm(t.reloadPrompt)) location.reload();
+    }
+  });
 }
