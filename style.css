@@ -611,6 +611,30 @@ input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent-yell
   background: rgba(10, 10, 10, 0.95);
   color: #fff;
 }
+.recs-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.85rem 1.25rem 0;
+}
+/* Les recommandations utilisent la même taille de poster que ta
+   collection principale (pas la densité compacte du sélecteur de
+   poster) : avec le filtre K-dramas, il n'y a jamais un nombre
+   massif de résultats à afficher, autant les montrer plus grands. */
+#global-recs-grid {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+  gap: 1rem !important;
+}
+@media screen and (max-width: 380px) {
+  #global-recs-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.6rem !important; }
+}
+@media screen and (min-width: 381px) and (max-width: 600px) {
+  #global-recs-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important; gap: 0.85rem !important; }
+}
+@media screen and (min-width: 601px) {
+  #global-recs-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important; gap: 1.2rem !important; }
+}
+
 .trailer-fallback-link {
   background: rgba(20, 20, 20, 0.7);
   border: 1px solid rgba(255,255,255,0.2);
@@ -1251,5 +1275,11 @@ details[open] summary.season-header::after { transform: rotate(180deg); }
   #drama-modal .modal-body {
     flex: 1;
     overflow-y: auto;
+  }
+
+  #recommendations-modal .modal-card {
+    max-width: 900px !important;
+    width: calc(100% - 2rem) !important;
+    height: 82vh;
   }
 }

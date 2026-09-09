@@ -243,11 +243,17 @@
 
 <!-- Global Recommendations Modal -->
 <div id="recommendations-modal" class="modal-overlay" style="z-index: 1120;" onclick="closeGlobalRecommendationsOnBackdrop(event)">
-  <div class="modal-card" style="max-height: 75vh;">
+  <div class="modal-card" style="height: 75vh; max-height: 85vh;">
     <button class="modal-close-btn" onclick="closeGlobalRecommendations()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     <div style="padding: 1.25rem 1.25rem 0.5rem 1.25rem; border-bottom: 1px solid var(--border);">
       <h3 style="font-size: 1.1rem; color: var(--text-main);" id="ui-recs-modal-title">Recommended for you</h3>
       <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;" id="ui-recs-modal-sub">Based on your favorites and top-rated shows</p>
+    </div>
+    <div class="recs-tabs" id="recs-tabs">
+      <button class="tab-btn active" data-tab="foryou" onclick="loadRecsTab('foryou')" id="ui-recs-tab-foryou">For you</button>
+      <button class="tab-btn" data-tab="popular" onclick="loadRecsTab('popular')" id="ui-recs-tab-popular">🔥 Popular</button>
+      <button class="tab-btn" data-tab="airing" onclick="loadRecsTab('airing')" id="ui-recs-tab-airing">📡 Airing</button>
+      <button class="tab-btn" data-tab="upcoming" onclick="loadRecsTab('upcoming')" id="ui-recs-tab-upcoming">📅 Upcoming</button>
     </div>
     <div class="modal-content">
       <div class="poster-gallery-grid" id="global-recs-grid"></div>

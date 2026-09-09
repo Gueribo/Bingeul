@@ -1,5 +1,20 @@
 const TMDB_API_KEY = "15d2ea6d0dc1d476efbca3eba2b9bbfb"; 
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.5.0";
+
+// Bloque le scroll de la page principale tant qu'au moins un modal est
+// ouvert. Un compteur (plutôt qu'un simple on/off) gère correctement
+// les modals ouverts l'un depuis l'autre (ex. sélecteur de poster ou
+// fiche acteur depuis la fiche série) : le scroll ne se débloque que
+// quand le dernier modal encore ouvert se ferme.
+let openModalCount = 0;
+function lockBodyScroll() {
+  openModalCount++;
+  document.body.style.overflow = 'hidden';
+}
+function unlockBodyScroll() {
+  openModalCount = Math.max(0, openModalCount - 1);
+  if (openModalCount === 0) document.body.style.overflow = '';
+}
 
 let dramas = JSON.parse(localStorage.getItem('tvtime_modal_kdrama_data')) || [];
 
@@ -33,6 +48,10 @@ const i18n = {
     btnRecs: "Recommendations",
     dataLabel: "Data",
     recsModalTitle: "Recommended for you",
+    recsTabForYou: "For you",
+    recsTabPopular: "🔥 Popular",
+    recsTabAiring: "📡 Airing",
+    recsTabUpcoming: "📅 Upcoming",
     recsModalSub: "Based on your favorites and top-rated shows",
     noRecsSource: "Add favorites or rate some shows first to get recommendations.",
     dashCompleted: "Completed",
@@ -148,6 +167,10 @@ const i18n = {
     btnRecs: "Recommandations",
     dataLabel: "Données",
     recsModalTitle: "Recommandé pour toi",
+    recsTabForYou: "Pour toi",
+    recsTabPopular: "🔥 Populaire",
+    recsTabAiring: "📡 En ce moment",
+    recsTabUpcoming: "📅 Prochainement",
     recsModalSub: "Basé sur tes favoris et séries les mieux notées",
     noRecsSource: "Ajoute des favoris ou note quelques séries pour obtenir des recommandations.",
     dashCompleted: "Terminés",
@@ -283,6 +306,10 @@ function applyLanguage(lang) {
   document.getElementById('ui-bilan-genres-title').textContent = t.bilanGenresTitle;
   document.getElementById('ui-actor-filmography-title').textContent = t.actorFilmographyTitle;
   document.getElementById('ui-recs-modal-title').textContent = t.recsModalTitle;
+  document.getElementById('ui-recs-tab-foryou').textContent = t.recsTabForYou;
+  document.getElementById('ui-recs-tab-popular').textContent = t.recsTabPopular;
+  document.getElementById('ui-recs-tab-airing').textContent = t.recsTabAiring;
+  document.getElementById('ui-recs-tab-upcoming').textContent = t.recsTabUpcoming;
   document.getElementById('ui-recs-modal-sub').textContent = t.recsModalSub;
   
   document.getElementById('ui-dash-completed').textContent = t.dashCompleted;
@@ -394,10 +421,12 @@ function openSettingsModal() {
   applyTheme(localStorage.getItem('tvtime_theme') || 'night');
   applyLanguage(currentLang);
   document.getElementById('settings-modal').classList.add('active');
+  lockBodyScroll();
 }
 
 function closeSettingsModal() {
   document.getElementById('settings-modal').classList.remove('active');
+  unlockBodyScroll();
 }
 
 function closeSettingsModalOnBackdrop(e) {
@@ -621,9 +650,11 @@ function renderDashboard() {
 function openBilanModal() {
   renderBilan();
   document.getElementById('bilan-modal').classList.add('active');
+  lockBodyScroll();
 }
 function closeBilanModal() {
   document.getElementById('bilan-modal').classList.remove('active');
+  unlockBodyScroll();
 }
 function closeBilanModalOnBackdrop(e) {
   if (e.target.id === 'bilan-modal') closeBilanModal();
@@ -698,7 +729,10 @@ function renderBilan() {
 }
 
 function hideResults() {
-  document.getElementById('search-results-modal').classList.remove('active');
+  const modal = document.getElementById('search-results-modal');
+  const wasActive = modal.classList.contains('active');
+  modal.classList.remove('active');
+  if (wasActive) unlockBodyScroll();
 } 
 
 function closeSearchResultsOnBackdrop(e) {
@@ -834,6 +868,7 @@ function renderSearchResults(shows) {
     });
   }
   document.getElementById('search-results-modal').classList.add('active');
+  lockBodyScroll();
 } 
 
 let activePreview = null;
@@ -856,6 +891,7 @@ function openTrailerPlayer(event) {
   iframe.src = `https://www.youtube.com/embed/${trailerKey}?autoplay=1&playsinline=1`;
   document.getElementById('trailer-fallback-link').href = `https://www.youtube.com/watch?v=${trailerKey}`;
   overlay.style.display = 'flex';
+  lockBodyScroll();
 
   // Plein écran automatique : le clic qui a mené ici compte comme un
   // vrai geste utilisateur, donc le navigateur autorise la demande.
@@ -867,6 +903,7 @@ function closeTrailerPlayer() {
   const overlay = document.getElementById('trailer-player-overlay');
   document.getElementById('trailer-iframe').src = '';
   overlay.style.display = 'none';
+  unlockBodyScroll();
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 }
 
@@ -875,6 +912,7 @@ document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement && overlay.style.display === 'flex') {
     document.getElementById('trailer-iframe').src = '';
     overlay.style.display = 'none';
+    unlockBodyScroll();
   }
 });
 
@@ -898,7 +936,7 @@ async function openPreviewModal(tmdbId, title, posterUrl, overview, returnTo = n
   loadRecommendations(tmdbId);
 
   document.getElementById('drama-modal').classList.add('active');
-  document.body.style.overflow = 'hidden';
+  lockBodyScroll();
 
   let meta = null;
   try { meta = await fetchTmdbShowDetails(tmdbId); } catch (e) {}
@@ -1189,10 +1227,12 @@ function openPosterModal() {
 
   loadPosterOptions(drama);
   document.getElementById('poster-picker-modal').classList.add('active');
+  lockBodyScroll();
 }
 
 function closePosterModal() {
   document.getElementById('poster-picker-modal').classList.remove('active');
+  unlockBodyScroll();
 }
 
 function closePosterModalOnBackdrop(e) {
@@ -1260,18 +1300,64 @@ async function loadPosterOptions(drama) {
 }
 
 function closeGlobalRecommendations() {
-  document.getElementById('recommendations-modal').classList.remove('active');
+  const modal = document.getElementById('recommendations-modal');
+  const wasActive = modal.classList.contains('active');
+  modal.classList.remove('active');
+  if (wasActive) unlockBodyScroll();
 }
 function closeGlobalRecommendationsOnBackdrop(e) {
   if (e.target.id === 'recommendations-modal') closeGlobalRecommendations();
 }
 
+let recsTabCache = {};
+let currentRecsTab = 'foryou';
+
 async function openGlobalRecommendations() {
-  const t = i18n[currentLang];
   document.getElementById('recommendations-modal').classList.add('active');
+  lockBodyScroll();
+  recsTabCache = {};
+  loadRecsTab('foryou');
+}
+
+function setActiveRecsTabButton(tab) {
+  document.querySelectorAll('#recs-tabs .tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+}
+
+async function loadRecsTab(tab) {
+  const t = i18n[currentLang];
+  currentRecsTab = tab;
+  setActiveRecsTabButton(tab);
+
   const container = document.getElementById('global-recs-grid');
+
+  if (recsTabCache[tab]) {
+    renderRecsGrid(recsTabCache[tab]);
+    return;
+  }
+
   container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); grid-column: 1/-1; text-align: center;">${t.loadingRecs}</span>`;
 
+  let results = [];
+  try {
+    if (tab === 'foryou') results = await fetchForYouRecs();
+    else if (tab === 'popular') results = await fetchTmdbListRecs('https://api.themoviedb.org/3/tv/popular');
+    else if (tab === 'airing') results = await fetchTmdbListRecs('https://api.themoviedb.org/3/tv/on_the_air');
+    else if (tab === 'upcoming') results = await fetchUpcomingRecs();
+  } catch (e) {}
+
+  recsTabCache[tab] = results;
+
+  if (currentRecsTab === tab) {
+    const emptyKey = (tab === 'foryou' && !dramas.some(d => d.tmdbId)) ? 'noRecsSource' : 'noRecsFound';
+    renderRecsGrid(results, emptyKey);
+  }
+}
+
+// Onglet "Pour toi" : recommandations TMDB basées sur tes favoris/séries
+// les mieux notées/terminées, par ressemblance de contenu.
+async function fetchForYouRecs() {
   const existingTmdbIds = new Set(dramas.map(d => d.tmdbId).filter(Boolean));
 
   let sourceShows = dramas.filter(d => d.favorite && d.tmdbId);
@@ -1283,10 +1369,7 @@ async function openGlobalRecommendations() {
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
     .slice(0, 10);
 
-  if (sourceShows.length === 0) {
-    container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); grid-column: 1/-1; text-align: center;">${t.noRecsSource}</span>`;
-    return;
-  }
+  if (sourceShows.length === 0) return [];
 
   const pool = new Map();
   for (const show of sourceShows) {
@@ -1299,28 +1382,62 @@ async function openGlobalRecommendations() {
     } catch (e) {}
   }
 
-  const similarResults = filterKoreanOnly(Array.from(pool.values()))
-    .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+  return filterKoreanOnly(Array.from(pool.values()))
+    .sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0))
+    .slice(0, 60);
+}
 
-  // Complète avec des séries populaires en général (pas forcément liées
-  // à ta liste) si tu veux voir davantage de choix.
-  const extra = new Map();
+// Onglets "Populaire" et "En ce moment" : listes TMDB toutes faites,
+// juste filtrées (déjà dans ta liste / K-dramas uniquement).
+async function fetchTmdbListRecs(endpoint) {
+  const existingTmdbIds = new Set(dramas.map(d => d.tmdbId).filter(Boolean));
+  const pool = new Map();
+
   for (let page = 1; page <= 3; page++) {
     try {
-      const res = await fetch(`https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_API_KEY}&page=${page}`);
+      const res = await fetch(`${endpoint}?api_key=${TMDB_API_KEY}&page=${page}`);
       const data = await res.json();
       (data.results || []).forEach(r => {
-        if (!existingTmdbIds.has(r.id) && !pool.has(r.id) && !extra.has(r.id)) extra.set(r.id, r);
+        if (!existingTmdbIds.has(r.id) && !pool.has(r.id)) pool.set(r.id, r);
       });
     } catch (e) {}
   }
-  const popularResults = filterKoreanOnly(Array.from(extra.values()))
-    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
 
-  const results = [...similarResults, ...popularResults].slice(0, 60);
+  return filterKoreanOnly(Array.from(pool.values()))
+    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+    .slice(0, 60);
+}
+
+// Onglet "Prochainement" : TMDB n'a pas d'endpoint dédié pour les
+// séries à venir (contrairement aux films) — on utilise "discover"
+// avec un filtre sur la date de première diffusion, triée par date la
+// plus proche.
+async function fetchUpcomingRecs() {
+  const existingTmdbIds = new Set(dramas.map(d => d.tmdbId).filter(Boolean));
+  const pool = new Map();
+  const today = new Date().toISOString().slice(0, 10);
+
+  for (let page = 1; page <= 3; page++) {
+    try {
+      const res = await fetch(`https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_API_KEY}&first_air_date.gte=${today}&sort_by=first_air_date.asc&page=${page}`);
+      const data = await res.json();
+      (data.results || []).forEach(r => {
+        if (!existingTmdbIds.has(r.id) && !pool.has(r.id)) pool.set(r.id, r);
+      });
+    } catch (e) {}
+  }
+
+  return filterKoreanOnly(Array.from(pool.values()))
+    .sort((a, b) => (a.first_air_date || '9999').localeCompare(b.first_air_date || '9999'))
+    .slice(0, 60);
+}
+
+function renderRecsGrid(results, emptyMessageKey) {
+  const t = i18n[currentLang];
+  const container = document.getElementById('global-recs-grid');
 
   if (results.length === 0) {
-    container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); grid-column: 1/-1; text-align: center;">${t.noRecsFound}</span>`;
+    container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-muted); grid-column: 1/-1; text-align: center;">${t[emptyMessageKey || 'noRecsFound']}</span>`;
     return;
   }
 
@@ -1644,6 +1761,7 @@ async function loadCast(tmdbId) {
 
 function closeActorModal() {
   document.getElementById('actor-modal').classList.remove('active');
+  unlockBodyScroll();
 }
 function closeActorModalOnBackdrop(e) {
   if (e.target.id === 'actor-modal') closeActorModal();
@@ -1652,6 +1770,7 @@ function closeActorModalOnBackdrop(e) {
 async function openActorModal(personId) {
   const t = i18n[currentLang];
   document.getElementById('actor-modal').classList.add('active');
+  lockBodyScroll();
   document.getElementById('actor-detail-photo').src = '';
   document.getElementById('actor-detail-name').textContent = '';
   document.getElementById('actor-detail-meta').textContent = '';
@@ -1766,7 +1885,7 @@ function openModal(dramaId) {
   document.getElementById('owner-only-sections').style.display = '';
   renderModalContent(dramaId);
   document.getElementById('drama-modal').classList.add('active');
-  document.body.style.overflow = 'hidden';
+  lockBodyScroll();
 } 
 
 function closeModal() {
@@ -1774,14 +1893,16 @@ function closeModal() {
   document.getElementById('modal-menu-dropdown').classList.remove('open');
   activeModalDramaId = null;
   activePreview = null;
-  document.body.style.overflow = '';
+  unlockBodyScroll();
 
   // Retour au modal précédent (recherche ou recommandations) plutôt
   // que de tout fermer d'un coup sur la page principale.
   if (modalReturnTo === 'search') {
     document.getElementById('search-results-modal').classList.add('active');
+    lockBodyScroll();
   } else if (modalReturnTo === 'recommendations') {
     document.getElementById('recommendations-modal').classList.add('active');
+    lockBodyScroll();
   }
   modalReturnTo = null;
 } 
