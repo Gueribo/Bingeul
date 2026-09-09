@@ -76,7 +76,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.45s ease;
 }
 .splash-logo {
   width: 110px;
@@ -84,7 +83,6 @@ body {
   animation: splash-pulse 1.4s ease-in-out infinite;
 }
 .app-splash.leaving {
-  opacity: 0;
   pointer-events: none;
 }
 .app-splash.leaving .splash-logo {
