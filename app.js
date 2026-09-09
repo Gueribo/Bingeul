@@ -361,6 +361,10 @@ function applyTheme(theme) {
   } else {
     document.documentElement.removeAttribute('data-theme');
   }
+  // Signal précis (pas juste "dark light") pour empêcher le navigateur
+  // de recolorer automatiquement le thème Pastel en sombre quand le
+  // téléphone est en mode nuit système (vu sur Samsung Internet).
+  document.documentElement.style.colorScheme = theme === 'pastel' ? 'light' : 'dark';
   localStorage.setItem('tvtime_theme', theme);
   
   const nightBtn = document.getElementById('btn-theme-night');
@@ -2095,4 +2099,27 @@ async function installApp() {
 // standalone au chargement, le bouton reste caché quoi qu'il arrive.
 if (isRunningStandalone()) {
   document.getElementById('install-app-group').style.display = 'none';
+}
+
+// Écran de démarrage : le logo reste affiché un court instant, puis
+// s'élève et rétrécit vers sa place dans l'en-tête (déjà rendu en
+// dessous à ce stade) pendant que l'écran de démarrage s'efface.
+const appSplash = document.getElementById('app-splash');
+if (appSplash) {
+  setTimeout(() => {
+    const splashLogo = appSplash.querySelector('.splash-logo');
+    const targetLogo = document.querySelector('header .app-logo');
+    if (splashLogo && targetLogo) {
+      const from = splashLogo.getBoundingClientRect();
+      const to = targetLogo.getBoundingClientRect();
+      const scale = to.width / from.width;
+      const dx = (to.left + to.width / 2) - (from.left + from.width / 2);
+      const dy = (to.top + to.height / 2) - (from.top + from.height / 2);
+      splashLogo.style.setProperty('--splash-dx', `${dx}px`);
+      splashLogo.style.setProperty('--splash-dy', `${dy}px`);
+      splashLogo.style.setProperty('--splash-scale', scale);
+    }
+    appSplash.classList.add('leaving');
+    setTimeout(() => appSplash.remove(), 650);
+  }, 650);
 }
