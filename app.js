@@ -129,6 +129,7 @@ const i18n = {
     checkingUpdates: "Checking...",
     updateCheckDone: "file(s) up to date.",
     updateCheckFailed: "Couldn't reach GitHub Pages — is it currently enabled?",
+    updateCheckNoController: "No active service worker yet for this page — try reloading the page once, then try again.",
     reloadPrompt: "Reload the app now to see the update?",
     updateCheckUnsupported: "Not available in this browsing mode.",
     maintenanceLabel: "Maintenance",
@@ -248,6 +249,7 @@ const i18n = {
     checkingUpdates: "Vérification...",
     updateCheckDone: "fichier(s) à jour.",
     updateCheckFailed: "Impossible de joindre GitHub Pages — est-il bien activé en ce moment ?",
+    updateCheckNoController: "Aucun service worker actif pour cette page pour le moment — recharge la page une fois, puis réessaie.",
     reloadPrompt: "Recharger l'app maintenant pour voir la mise à jour ?",
     updateCheckUnsupported: "Non disponible dans ce mode de navigation.",
     maintenanceLabel: "Maintenance",
@@ -2270,21 +2272,21 @@ function checkForAppUpdates() {
     return;
   }
 
+  const controller = navigator.serviceWorker.controller;
+  if (!controller) {
+    // Aucun service worker ne contrôle cette page pour le moment
+    // (ex. tout juste après une réinstallation) : un simple rechargement
+    // suffit généralement à résoudre ça.
+    alert(t.updateCheckNoController);
+    return;
+  }
+
   const originalText = label.textContent;
   btn.disabled = true;
   label.textContent = t.checkingUpdates;
   updateCheckHandled = false;
 
-  navigator.serviceWorker.ready.then((reg) => {
-    if (reg.active) {
-      reg.active.postMessage('CHECK_FOR_UPDATES');
-    } else {
-      updateCheckHandled = true;
-      btn.disabled = false;
-      label.textContent = originalText;
-      alert(t.updateCheckFailed);
-    }
-  });
+  controller.postMessage('CHECK_FOR_UPDATES');
 
   // Filet de sécurité : si aucune réponse ne revient dans un délai
   // généreux (site injoignable, connexion lente...), on débloque le
@@ -2310,7 +2312,10 @@ if ('serviceWorker' in navigator) {
     label.textContent = t.checkUpdatesLabel;
 
     if (event.data.success === 0) {
-      alert(t.updateCheckFailed);
+      const details = (event.data.errors && event.data.errors.length)
+        ? '\n\n' + event.data.errors.slice(0, 4).join('\n')
+        : '';
+      alert(t.updateCheckFailed + details);
     } else {
       alert(`${event.data.success}/${event.data.total} ${t.updateCheckDone}`);
       if (confirm(t.reloadPrompt)) location.reload();
