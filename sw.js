@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bingeul-tvtime-v11';
+const CACHE_NAME = 'bingeul-tvtime-v12';
 const APP_SHELL = [
   './index.html',
   './style.css',
@@ -79,9 +79,20 @@ self.addEventListener('fetch', (event) => {
   // réseau, l'app gère déjà elle-même ces échecs quand hors-ligne.
   if (url.origin !== self.location.origin) return;
 
-  // Cache d'abord : si le fichier est déjà en cache, on le sert
-  // directement sans jamais toucher au réseau. Sinon (première visite,
-  // fichier pas listé dans APP_SHELL...), on retente le réseau en repli.
+  // Toute navigation (ouverture ou rechargement de l'app — tiré vers
+  // le bas, geste retour, peu importe l'URL exacte tapée ou générée)
+  // sert systématiquement la page d'accueil déjà en cache. Pas de
+  // correspondance exacte d'URL à espérer, pas d'aller-retour réseau :
+  // l'app shell est toujours le même, quelle que soit la route.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      caches.match('./index.html').then((cached) => cached || fetch(event.request))
+    );
+    return;
+  }
+
+  // Pour le reste (style.css, app.js, icônes...) : cache d'abord, avec
+  // un repli réseau silencieux si jamais un fichier venait à manquer.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -90,19 +101,10 @@ self.addEventListener('fetch', (event) => {
           if (response && response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-            return response;
-          }
-          // Le réseau a bien répondu, mais avec une erreur (ex. 404 de
-          // GitHub Pages désactivé) : ce n'est pas un échec réseau à
-          // proprement parler, donc ça ne déclenche pas .catch() plus
-          // bas — il faut le gérer ici aussi, pas seulement en cas de
-          // panne réseau complète.
-          if (event.request.mode === 'navigate') {
-            return caches.match('./index.html').then((fallback) => fallback || response);
           }
           return response;
         })
-        .catch(() => (event.request.mode === 'navigate' ? caches.match('./index.html') : undefined));
+        .catch(() => undefined);
     })
   );
 });
