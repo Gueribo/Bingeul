@@ -2258,6 +2258,8 @@ if (appSplash) {
 // Vérifier les mises à jour : à utiliser quand GitHub Pages est
 // temporairement réactivé, pour forcer une resynchronisation immédiate
 // de tous les fichiers plutôt que d'attendre le prochain hasard réseau.
+let updateCheckHandled = true;
+
 function checkForAppUpdates() {
   const t = i18n[currentLang];
   const btn = document.getElementById('btn-check-updates');
@@ -2271,30 +2273,36 @@ function checkForAppUpdates() {
   const originalText = label.textContent;
   btn.disabled = true;
   label.textContent = t.checkingUpdates;
+  updateCheckHandled = false;
 
   navigator.serviceWorker.ready.then((reg) => {
     if (reg.active) {
       reg.active.postMessage('CHECK_FOR_UPDATES');
     } else {
+      updateCheckHandled = true;
       btn.disabled = false;
       label.textContent = originalText;
       alert(t.updateCheckFailed);
     }
   });
 
-  // Filet de sécurité : si aucune réponse ne revient (site injoignable),
-  // on débloque le bouton après quelques secondes.
+  // Filet de sécurité : si aucune réponse ne revient dans un délai
+  // généreux (site injoignable, connexion lente...), on débloque le
+  // bouton ET on prévient clairement plutôt que de rester muet.
   setTimeout(() => {
-    if (btn.disabled) {
+    if (!updateCheckHandled) {
+      updateCheckHandled = true;
       btn.disabled = false;
       label.textContent = originalText;
+      alert(t.updateCheckFailed);
     }
-  }, 8000);
+  }, 15000);
 }
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (!event.data || event.data.type !== 'UPDATE_CHECK_DONE') return;
+    updateCheckHandled = true;
     const t = i18n[currentLang];
     const btn = document.getElementById('btn-check-updates');
     const label = document.getElementById('ui-btn-check-updates');
