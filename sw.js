@@ -13,9 +13,6 @@ const APP_SHELL = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
-      // Chaque fichier est mis en cache indépendamment : si l'un
-      // d'eux est introuvable, les autres sont quand même mis en
-      // cache et le service worker s'installe correctement.
       Promise.allSettled(APP_SHELL.map((url) => cache.add(url)))
     )
   );
@@ -31,39 +28,61 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Resynchronisation à la demande : la page envoie ce message quand
-// GitHub Pages est temporairement réactivé (bouton "Vérifier les mises
-// à jour" dans Paramètres), pour forcer le rechargement de tous les
-// fichiers depuis le réseau et rafraîchir le cache d'un coup.
+// Manual update check: compares network files with cached contents byte-for-byte.
+// Only updates the cache if differences are found, returning explicit status messages.
 self.addEventListener('message', (event) => {
   if (event.data !== 'CHECK_FOR_UPDATES') return;
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) =>
-      Promise.allSettled(
-        APP_SHELL.map((url) =>
-          fetch(url, { cache: 'no-store' }).then((response) => {
-            if (response && response.ok) return cache.put(url, response);
-            throw new Error(`HTTP ${response ? response.status : '?'} — ${url}`);
-          })
-        )
-      )
-    ).then((results) => {
-      const success = results.filter((r) => r.status === 'fulfilled').length;
-      const errors = results
-        .filter((r) => r.status === 'rejected')
-        .map((r) => (r.reason && r.reason.message) || String(r.reason));
+    caches.open(CACHE_NAME).then(async (cache) => {
+      let updatedCount = 0;
+      let unchangedCount = 0;
+      let errors = [];
+
+      for (const url of APP_SHELL) {
+        try {
+          const newRes = await fetch(url, { cache: 'no-store' });
+          if (!newRes || !newRes.ok) {
+            throw new Error(`HTTP ${newRes ? newRes.status : '?'}`);
+          }
+          const newText = await newRes.text();
+          
+          const cachedRes = await cache.match(url);
+          const cachedText = cachedRes ? await cachedRes.text() : null;
+
+          if (cachedText === newText) {
+            unchangedCount++;
+          } else {
+            const freshResForCache = new Response(newText, {
+              status: newRes.status,
+              statusText: newRes.statusText,
+              headers: newRes.headers
+            });
+            await cache.put(url, freshResForCache);
+            updatedCount++;
+          }
+        } catch (err) {
+          errors.push(`${url}: ${err.message || err}`);
+        }
+      }
+
+      const statusType = updatedCount > 0 ? 'NEW_UPDATE_INSTALLED' : 'ALREADY_UP_TO_DATE';
+
       self.clients.matchAll().then((clients) => {
         clients.forEach((client) =>
-          client.postMessage({ type: 'UPDATE_CHECK_DONE', success, total: APP_SHELL.length, errors })
+          client.postMessage({
+            type: statusType,
+            updatedCount,
+            unchangedCount,
+            total: APP_SHELL.length,
+            errors
+          })
         );
       });
     }).catch((err) => {
       self.clients.matchAll().then((clients) => {
         clients.forEach((client) =>
           client.postMessage({
-            type: 'UPDATE_CHECK_DONE',
-            success: 0,
-            total: APP_SHELL.length,
+            type: 'UPDATE_CHECK_ERROR',
             errors: [String((err && err.message) || err)]
           })
         );
@@ -75,29 +94,21 @@ self.addEventListener('message', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Cross-origin (TMDB, images, placeholder...) : toujours direct au
-  // réseau, l'app gère déjà elle-même ces échecs quand hors-ligne.
+  // Cross-origin (TMDB, images, placeholder...) : always direct to network.
   if (url.origin !== self.location.origin) return;
 
-  // Toute navigation (ouverture ou rechargement de l'app — tiré vers
-  // le bas, geste retour, peu importe l'URL exacte tapée ou générée)
-  // sert systématiquement la page d'accueil déjà en cache. Pas de
-  // correspondance exacte d'URL à espérer, pas d'aller-retour réseau :
-  // l'app shell est toujours le même, quelle que soit la route.
+  // Strict local cache-only navigation: never triggers an automatic online fetch for index.html.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       caches.match('./index.html').then((cached) => {
         if (cached) return cached;
-        // Optionnel : si jamais le cache est vide, tente un repli réseau d'urgence,
-        // sinon retourne une réponse d'erreur propre.
         return fetch(event.request).catch(() => new Response("App offline and shell not cached.", { status: 503, headers: { 'Content-Type': 'text/plain' } }));
       })
     );
     return;
   }
 
-  // Pour le reste (style.css, app.js, icônes...) : cache d'abord, avec
-  // un repli réseau silencieux si jamais un fichier venait à manquer.
+  // Cache-first strategy for remaining local app shell assets.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
