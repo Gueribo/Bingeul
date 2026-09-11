@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bingeul-tvtime-v13';
+const CACHE_NAME = 'bingeul-tvtime-v14';
 const APP_SHELL = [
   './index.html',
   './style.css',
@@ -35,40 +35,45 @@ self.addEventListener('activate', (event) => {
 // GitHub Pages est temporairement réactivé (bouton "Vérifier les mises
 // à jour" dans Paramètres), pour forcer le rechargement de tous les
 // fichiers depuis le réseau et rafraîchir le cache d'un coup.
+async function hashBuffer(buffer) {
+  const digest = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 self.addEventListener('message', (event) => {
   if (event.data !== 'CHECK_FOR_UPDATES') return;
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) =>
-      Promise.allSettled(
-        APP_SHELL.map((url) =>
-          fetch(url, { cache: 'no-store' }).then((response) => {
-            if (response && response.ok) return cache.put(url, response);
-            throw new Error(`HTTP ${response ? response.status : '?'} — ${url}`);
-          })
-        )
-      )
-    ).then((results) => {
-      const success = results.filter((r) => r.status === 'fulfilled').length;
-      const errors = results
-        .filter((r) => r.status === 'rejected')
-        .map((r) => (r.reason && r.reason.message) || String(r.reason));
-      self.clients.matchAll().then((clients) => {
-        clients.forEach((client) =>
-          client.postMessage({ type: 'UPDATE_CHECK_DONE', success, total: APP_SHELL.length, errors })
-        );
-      });
-    }).catch((err) => {
-      self.clients.matchAll().then((clients) => {
-        clients.forEach((client) =>
-          client.postMessage({
-            type: 'UPDATE_CHECK_DONE',
-            success: 0,
-            total: APP_SHELL.length,
-            errors: [String((err && err.message) || err)]
-          })
-        );
-      });
-    })
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      let updated = 0, unchanged = 0, failed = 0;
+      const errors = [];
+
+      await Promise.all(APP_SHELL.map(async (url) => {
+        try {
+          const response = await fetch(url, { cache: 'no-store' });
+          if (!response || !response.ok) throw new Error(`HTTP ${response ? response.status : '?'} — ${url}`);
+
+          const newHash = await hashBuffer(await response.clone().arrayBuffer());
+          const oldResponse = await cache.match(url);
+          const oldHash = oldResponse ? await hashBuffer(await oldResponse.arrayBuffer()) : null;
+
+          if (oldHash === newHash) {
+            unchanged++;
+          } else {
+            updated++;
+            await cache.put(url, response);
+          }
+        } catch (err) {
+          failed++;
+          errors.push((err && err.message) || String(err));
+        }
+      }));
+
+      const clients = await self.clients.matchAll();
+      clients.forEach((client) =>
+        client.postMessage({ type: 'UPDATE_CHECK_DONE', updated, unchanged, failed, total: APP_SHELL.length, errors })
+      );
+    })()
   );
 });
 
