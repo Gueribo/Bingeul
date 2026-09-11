@@ -127,7 +127,9 @@ const i18n = {
     refreshAllLabel: "Refresh all shows",
     checkUpdatesLabel: "Check for updates",
     checkingUpdates: "Checking...",
-    updateCheckDone: "file(s) up to date.",
+    updateCheckUpToDate: "Everything is already up to date, nothing to change!",
+    updateCheckSomeUpdated: "file(s) updated.",
+    updateCheckSomeFailed: "failed",
     updateCheckFailed: "Couldn't reach GitHub Pages — is it currently enabled?",
     updateCheckNoController: "No active service worker yet for this page — try reloading the page once, then try again.",
     reloadPrompt: "Reload the app now to see the update?",
@@ -247,7 +249,9 @@ const i18n = {
     refreshAllLabel: "Tout rafraîchir",
     checkUpdatesLabel: "Vérifier les mises à jour",
     checkingUpdates: "Vérification...",
-    updateCheckDone: "fichier(s) à jour.",
+    updateCheckUpToDate: "Tout est déjà à jour, rien à changer !",
+    updateCheckSomeUpdated: "fichier(s) mis à jour.",
+    updateCheckSomeFailed: "échec(s)",
     updateCheckFailed: "Impossible de joindre GitHub Pages — est-il bien activé en ce moment ?",
     updateCheckNoController: "Aucun service worker actif pour cette page pour le moment — recharge la page une fois, puis réessaie.",
     reloadPrompt: "Recharger l'app maintenant pour voir la mise à jour ?",
@@ -2311,13 +2315,16 @@ if ('serviceWorker' in navigator) {
     btn.disabled = false;
     label.textContent = t.checkUpdatesLabel;
 
-    if (event.data.success === 0) {
-      const details = (event.data.errors && event.data.errors.length)
-        ? '\n\n' + event.data.errors.slice(0, 4).join('\n')
-        : '';
+    const { updated, unchanged, failed, total, errors } = event.data;
+
+    if (updated === 0 && failed === 0) {
+      alert(t.updateCheckUpToDate);
+    } else if (updated === 0 && failed > 0) {
+      const details = (errors && errors.length) ? '\n\n' + errors.slice(0, 4).join('\n') : '';
       alert(t.updateCheckFailed + details);
     } else {
-      alert(`${event.data.success}/${event.data.total} ${t.updateCheckDone}`);
+      const failedPart = failed > 0 ? ` (${failed} ${t.updateCheckSomeFailed})` : '';
+      alert(`${updated}/${total} ${t.updateCheckSomeUpdated}${failedPart}`);
       if (confirm(t.reloadPrompt)) location.reload();
     }
   });
