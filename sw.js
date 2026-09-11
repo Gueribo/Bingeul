@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bingeul-tvtime-v12';
+const CACHE_NAME = 'bingeul-tvtime-v13';
 const APP_SHELL = [
   './index.html',
   './style.css',
@@ -81,30 +81,24 @@ self.addEventListener('fetch', (event) => {
 
   // Toute navigation (ouverture ou rechargement de l'app — tiré vers
   // le bas, geste retour, peu importe l'URL exacte tapée ou générée)
-  // sert systématiquement la page d'accueil déjà en cache. Pas de
-  // correspondance exacte d'URL à espérer, pas d'aller-retour réseau :
-  // l'app shell est toujours le même, quelle que soit la route.
+  // sert systématiquement la page d'accueil déjà en cache.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match('./index.html').then((cached) => cached || fetch(event.request))
+      caches.match('./index.html').then((cached) => cached || new Response('', { status: 503 }))
     );
     return;
   }
 
-  // Pour le reste (style.css, app.js, icônes...) : cache d'abord, avec
-  // un repli réseau silencieux si jamais un fichier venait à manquer.
+  // Pour le reste (style.css, app.js, icônes...) : cache UNIQUEMENT,
+  // sans la moindre exception — aucune tentative réseau automatique,
+  // même en repli si jamais un fichier manquait du cache. On compare
+  // par chemin plutôt que par requête exacte (ignoreSearch), plus
+  // tolérant aux petites variations que le navigateur peut ajouter à
+  // une requête d'une fois à l'autre, qui faisaient parfois "rater" la
+  // correspondance et déclenchaient un appel réseau non désiré.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          if (response && response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => undefined);
+    caches.match(event.request, { ignoreSearch: true }).then((cached) => {
+      return cached || new Response('', { status: 404 });
     })
   );
 });
