@@ -28,8 +28,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Manual update check: compares network files with cached contents byte-for-byte.
-// Only updates the cache if differences are found, returning explicit status messages.
+// Manual update check using absolute URL resolution to prevent GitHub Pages fetch errors.
 self.addEventListener('message', (event) => {
   if (event.data !== 'CHECK_FOR_UPDATES') return;
   event.waitUntil(
@@ -40,7 +39,10 @@ self.addEventListener('message', (event) => {
 
       for (const url of APP_SHELL) {
         try {
-          const newRes = await fetch(url, { cache: 'no-store' });
+          // Resolve absolute URL safely based on service worker location
+          const absoluteUrl = new URL(url, self.location).href;
+          const newRes = await fetch(absoluteUrl, { cache: 'no-store' });
+          
           if (!newRes || !newRes.ok) {
             throw new Error(`HTTP ${newRes ? newRes.status : '?'}`);
           }
@@ -94,10 +96,8 @@ self.addEventListener('message', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Cross-origin (TMDB, images, placeholder...) : always direct to network.
   if (url.origin !== self.location.origin) return;
 
-  // Strict local cache-only navigation: never triggers an automatic online fetch for index.html.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       caches.match('./index.html').then((cached) => {
@@ -108,7 +108,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first strategy for remaining local app shell assets.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
