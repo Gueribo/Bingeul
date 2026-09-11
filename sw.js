@@ -86,7 +86,12 @@ self.addEventListener('fetch', (event) => {
   // l'app shell est toujours le même, quelle que soit la route.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match('./index.html').then((cached) => cached || fetch(event.request))
+      caches.match('./index.html').then((cached) => {
+        if (cached) return cached;
+        // Optionnel : si jamais le cache est vide, tente un repli réseau d'urgence,
+        // sinon retourne une réponse d'erreur propre.
+        return fetch(event.request).catch(() => new Response("App offline and shell not cached.", { status: 503, headers: { 'Content-Type': 'text/plain' } }));
+      })
     );
     return;
   }
