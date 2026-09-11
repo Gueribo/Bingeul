@@ -686,12 +686,13 @@ function renderBilanBars(containerId, counts, total) {
   }).join('');
 }
 
-function renderBilan() {
+async function renderBilan() {
   const t = i18n[currentLang];
 
   if (dramas.length === 0) {
     document.getElementById('bilan-stats-grid').innerHTML = `<p style="font-size:0.85rem; color:var(--text-muted); grid-column: 1/-1; text-align:center;">${t.bilanNoData}</p>`;
     document.getElementById('bilan-genres-list').innerHTML = '';
+    document.getElementById('bilan-poster-stack').innerHTML = '';
     return;
   }
 
@@ -723,15 +724,48 @@ function renderBilan() {
   const avgRating = ratedCount > 0 ? (ratingSum / ratedCount).toFixed(1) : '—';
 
   document.getElementById('bilan-stats-grid').innerHTML = `
-    <div class="bilan-stat-card"><div class="bilan-stat-value">${dramas.length}</div><div class="bilan-stat-label">${t.bilanShows}</div></div>
-    <div class="bilan-stat-card"><div class="bilan-stat-value">${totalEpWatched}</div><div class="bilan-stat-label">${t.bilanEpisodes}</div></div>
-    <div class="bilan-stat-card"><div class="bilan-stat-value">${timeString}</div><div class="bilan-stat-label">${t.bilanTime}</div></div>
-    <div class="bilan-stat-card"><div class="bilan-stat-value">${completed}</div><div class="bilan-stat-label">${t.bilanCompleted}</div></div>
-    <div class="bilan-stat-card"><div class="bilan-stat-value">${favoritesCount}</div><div class="bilan-stat-label">${t.bilanFavorites}</div></div>
-    <div class="bilan-stat-card"><div class="bilan-stat-value">${avgRating}${ratedCount > 0 ? ' / 5' : ''}</div><div class="bilan-stat-label">${t.bilanAvgRating}</div></div>
+    <div class="bilan-stat-card"><div class="bilan-icon">🎬</div><div class="bilan-stat-value">${dramas.length}</div><div class="bilan-stat-label">${t.bilanShows}</div></div>
+    <div class="bilan-stat-card"><div class="bilan-icon">📺</div><div class="bilan-stat-value">${totalEpWatched}</div><div class="bilan-stat-label">${t.bilanEpisodes}</div></div>
+    <div class="bilan-stat-card"><div class="bilan-icon">🍜</div><div class="bilan-stat-value">${timeString}</div><div class="bilan-stat-label">${t.bilanTime}</div></div>
+    <div class="bilan-stat-card"><div class="bilan-icon">✅</div><div class="bilan-stat-value">${completed}</div><div class="bilan-stat-label">${t.bilanCompleted}</div></div>
+    <div class="bilan-stat-card"><div class="bilan-icon">🫰</div><div class="bilan-stat-value">${favoritesCount}</div><div class="bilan-stat-label">${t.bilanFavorites}</div></div>
+    <div class="bilan-stat-card"><div class="bilan-icon">⭐</div><div class="bilan-stat-value">${avgRating}${ratedCount > 0 ? ' / 5' : ''}</div><div class="bilan-stat-label">${t.bilanAvgRating}</div></div>
   `;
 
   renderBilanBars('bilan-genres-list', genreCounts, dramas.length);
+  renderBilanPosterStack();
+}
+
+// Petite pile de posters mettant en avant tes favoris (ou, à défaut,
+// tes séries les mieux notées) — purement décoratif, à côté des stats.
+async function renderBilanPosterStack() {
+  const stack = document.getElementById('bilan-poster-stack');
+  if (!stack) return;
+
+  let highlights = dramas.filter(d => d.favorite);
+  if (highlights.length < 3) {
+    const rated = dramas.filter(d => !d.favorite && (d.rating || 0) >= 4)
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    highlights = highlights.concat(rated);
+  }
+  if (highlights.length < 3) {
+    const rest = dramas.filter(d => !highlights.includes(d))
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    highlights = highlights.concat(rest);
+  }
+  highlights = highlights.slice(0, 3);
+
+  if (highlights.length === 0) {
+    stack.innerHTML = '';
+    return;
+  }
+
+  const imgs = await Promise.all(highlights.map(async (d) => {
+    const blobUrl = await getPosterBlobUrl(d.id);
+    return blobUrl || d.selectedPosterUrl || d.fallbackPoster || '';
+  }));
+
+  stack.innerHTML = imgs.map((src, i) => `<img src="${src}" alt="${highlights[i].title}">`).join('');
 }
 
 function hideResults() {
