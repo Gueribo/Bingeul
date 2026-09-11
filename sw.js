@@ -1,13 +1,16 @@
 const CACHE_NAME = 'bingeul-tvtime-v12';
+
+// Use absolute paths including the subfolder structure or dynamic base path
+const BASE_PATH = self.location.pathname.replace(/\/[^\/]*$/, '/');
 const APP_SHELL = [
-  './index.html',
-  './style.css',
-  './app.js',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
-  './icon-512-maskable.png',
-  './apple-touch-icon.png'
+  BASE_PATH + 'index.html',
+  BASE_PATH + 'style.css',
+  BASE_PATH + 'app.js',
+  BASE_PATH + 'manifest.json',
+  BASE_PATH + 'icon-192.png',
+  BASE_PATH + 'icon-512.png',
+  BASE_PATH + 'icon-512-maskable.png',
+  BASE_PATH + 'apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -28,7 +31,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Manual update check using absolute URL resolution to prevent GitHub Pages fetch errors.
+// Manual update check using dynamic base paths for GitHub Pages subfolder compatibility.
 self.addEventListener('message', (event) => {
   if (event.data !== 'CHECK_FOR_UPDATES') return;
   event.waitUntil(
@@ -39,10 +42,7 @@ self.addEventListener('message', (event) => {
 
       for (const url of APP_SHELL) {
         try {
-          // Resolve absolute URL safely based on service worker location
-          const absoluteUrl = new URL(url, self.location).href;
-          const newRes = await fetch(absoluteUrl, { cache: 'no-store' });
-          
+          const newRes = await fetch(url, { cache: 'no-store' });
           if (!newRes || !newRes.ok) {
             throw new Error(`HTTP ${newRes ? newRes.status : '?'}`);
           }
@@ -100,9 +100,9 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match('./index.html').then((cached) => {
+      caches.match(BASE_PATH + 'index.html').then((cached) => {
         if (cached) return cached;
-        return fetch(event.request).catch(() => new Response("App offline and shell not cached.", { status: 503, headers: { 'Content-Type': 'text/plain' } }));
+        return caches.match('./index.html').then((c2) => c2 || fetch(event.request));
       })
     );
     return;
