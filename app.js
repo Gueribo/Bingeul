@@ -2363,3 +2363,22 @@ if ('serviceWorker' in navigator) {
     }
   });
 }
+
+// Blocage du "tiré vers le bas pour rafraîchir" : en renfort de
+// overscroll-behavior (CSS), qui n'est pas toujours respecté à 100%
+// par tous les navigateurs (ex. Samsung Internet). On bloque le geste
+// nous-mêmes uniquement quand il pousserait la page à se recharger
+// (déjà tout en haut + tiré vers le bas), sans toucher au reste du
+// scroll normal de l'app.
+let touchStartY = 0;
+document.addEventListener('touchstart', (e) => {
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchmove', (e) => {
+  const touchY = e.touches[0].clientY;
+  const atTop = (window.scrollY || document.documentElement.scrollTop) <= 0;
+  if (atTop && touchY > touchStartY) {
+    e.preventDefault();
+  }
+}, { passive: false });

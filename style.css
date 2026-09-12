@@ -43,6 +43,9 @@ input, textarea, select {
   user-select: text;
 }
 
+html {
+  overscroll-behavior: none;
+}
 body { 
   background: var(--bg-color); 
   color: var(--text-main); 
@@ -50,7 +53,7 @@ body {
   padding-bottom: max(2rem, env(safe-area-inset-bottom));
   padding-left: 1rem;
   padding-right: 1rem;
-  overscroll-behavior-y: none;
+  overscroll-behavior: none;
   transition: background 0.3s, color 0.3s;
   min-height: 100vh;
 } 
